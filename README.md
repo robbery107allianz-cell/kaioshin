@@ -160,6 +160,19 @@ A: Apple marked it as deprecated since macOS 10.15, but it remains functional (t
 **Q: Can a smart AI agent bypass this?**
 A: No. `sandbox-exec` is enforced at the kernel level. The sandboxed process cannot escape — it would need a kernel exploit, which is far beyond any AI agent's capability.
 
+## Known Limitations
+
+**macOS `defaults read` bypasses file-level deny rules.**
+
+The `defaults` command reads preferences through `cfprefsd` (an XPC service), not through direct file I/O. This means commands like `defaults read MobileMeAccounts` can still return iCloud account identities (email addresses, display names) even though the underlying plist file is blocked.
+
+This is a macOS architecture constraint — `sandbox-exec` enforces file-level access control but cannot intercept XPC inter-process communication.
+
+**What's exposed:** Apple ID email addresses, display names.
+**What's NOT exposed:** Passwords, authentication tokens, Keychain data (all blocked).
+
+**Recommendation:** Enable **two-factor authentication** (2FA) on all your Apple accounts. With 2FA active, a leaked email address alone has near-zero security impact. You can enable it at [appleid.apple.com](https://appleid.apple.com) → Sign-In and Security → Two-Factor Authentication.
+
 ## Threat Model
 
 Kaioshin protects against three attack vectors:

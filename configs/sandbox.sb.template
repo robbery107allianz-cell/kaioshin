@@ -136,10 +136,21 @@
 (deny file-read* (literal "__HOME__/.pypirc"))
 
 ;; ============================================================
-;; P2 — System-level: Cookies / Accounts
+;; P2 — System-level: Cookies / Accounts / iCloud identity
 ;; ============================================================
 (deny file-read* (subpath "__HOME__/Library/Cookies"))
 (deny file-read* (subpath "__HOME__/Library/Accounts"))
+
+;; iCloud account identity (leaks all Apple IDs, real names, DSIDs)
+(deny file-read* (literal "__HOME__/Library/Preferences/MobileMeAccounts.plist"))
+
+;; Apple account and auth caches
+(deny file-read* (literal "__HOME__/Library/Preferences/com.apple.appleaccount.plist"))
+(deny file-read* (literal "__HOME__/Library/Preferences/com.apple.appleaccount.informationcache.plist"))
+(deny file-read* (literal "__HOME__/Library/Preferences/com.apple.accountsd.plist"))
+
+;; Passwords app preferences
+(deny file-read* (literal "__HOME__/Library/Preferences/com.apple.Passwords.plist"))
 
 ;; ============================================================
 ;; USER CUSTOM RULES — add your own deny rules below

@@ -1,0 +1,13 @@
+# Generated sandbox profile (user-specific, contains absolute paths)
+configs/sandbox.sb
+
+# Scan results (machine-specific personal data)
+scans/
+
+# macOS
+.DS_Store
+
+# Editor
+*.swp
+*.swo
+*~

@@ -1,0 +1,174 @@
+# MASS — 敏感数据分类清单
+# Version: 1.0
+# Date: 2026-03-03
+# Machine: George Orwell (MacBook Air M3)
+#
+# 使用方式:
+#   1. 启用/禁用类别: 设置 enabled: true/false
+#   2. 添加路径: 在对应类别的 paths 下新增
+#   3. 重新生成沙箱: ./mass generate
+#
+# 路径中 ~ 会在生成时展开为 $HOME
+
+# ============================================================
+# P0 — 致命级: 物理安全 + 不可逆损失
+# ============================================================
+
+hardware:
+  enabled: true
+  priority: P0
+  description: "摄像头/麦克风/屏幕录制 — 物理世界最高隐私防线"
+  sandbox_rules:
+    # sandbox-exec 进程级硬封锁
+    - "(deny device-camera)"
+    - "(deny device-microphone)"
+  blocked_commands:
+    # 命令行摄像头/麦克风捕获工具
+    - "imagesnap"          # CLI 摄像头拍照
+    - "ffmpeg.*avfoundation"  # ffmpeg 调用摄像头/麦克风
+    - "screencapture -v"   # 屏幕录制 (含音频)
+    - "avrecord"           # AV 录制工具
+    - "rec"                # SoX 录音命令
+  notes: |
+    macOS TCC 已对摄像头/麦克风做了应用级权限管理 (红点提示),
+    但 AI agent 通过终端执行命令时, 可能绕过 TCC 的视觉提示。
+    sandbox-exec 在进程级别直接封锁设备访问, 比 TCC 更硬。
+    即使 AI 被 prompt injection 诱导调用摄像头, 也会被系统拒绝。
+
+browsers:
+  enabled: true
+  priority: P0
+  description: "所有浏览器敏感数据 (密码/Cookies/钱包插件/自动填充)"
+  paths:
+    # --- Google Chrome ---
+    - "~/Library/Application Support/Google/Chrome/"
+    - "~/Library/Caches/Google/Chrome/"
+
+    # --- Mozilla Firefox ---
+    - "~/Library/Application Support/Firefox/"
+    - "~/Library/Caches/Firefox/"
+
+    # --- Apple Safari ---
+    - "~/Library/Safari/"
+
+    # --- Microsoft Edge ---
+    - "~/Library/Application Support/Microsoft Edge/"
+    - "~/Library/Caches/Microsoft Edge/"
+
+    # --- Brave ---
+    - "~/Library/Application Support/BraveSoftware/"
+    - "~/Library/Caches/BraveSoftware/"
+
+    # --- Arc ---
+    - "~/Library/Application Support/Arc/"
+
+    # --- Chromium ---
+    - "~/Library/Application Support/Chromium/"
+
+    # --- Opera ---
+    - "~/Library/Application Support/com.operasoftware.Opera/"
+
+    # --- Vivaldi ---
+    - "~/Library/Application Support/Vivaldi/"
+
+keychain:
+  enabled: true
+  priority: P0
+  description: "macOS 钥匙串 + security 命令 (所有本地密码的集中存储)"
+  paths:
+    - "~/Library/Keychains/"
+    - "/Library/Keychains/"
+  blocked_commands:
+    - "/usr/bin/security"
+
+# ============================================================
+# P1 — 严重级: 可恢复但代价高, 涉及隐私
+# ============================================================
+
+crypto_keys:
+  enabled: true
+  priority: P1
+  description: "SSH/GPG 私钥 + 加密钱包"
+  paths:
+    - "~/.ssh/"
+    - "~/.gnupg/"
+    # 如果安装了独立钱包 APP, 在此添加路径
+
+messaging:
+  enabled: true
+  priority: P1
+  description: "通讯 APP 数据 (聊天记录/联系人/session)"
+  paths:
+    # --- WeChat (20GB) ---
+    - "~/Library/Containers/com.tencent.xinWeChat/"
+    - "~/Library/Application Support/com.tencent.xinWeChat/"
+
+    # --- QQ (10GB) ---
+    - "~/Library/Containers/com.tencent.qq/"
+    - "~/Library/Application Support/QQ/"
+
+    # --- Telegram ---
+    - "~/Library/Containers/ru.keepcoder.Telegram/"
+    - "~/Library/Containers/ru.keepcoder.Telegram.TelegramShare/"
+    - "~/Library/Application Support/Telegram Desktop/"
+
+    # --- 如安装以下 APP, 取消注释 ---
+    # - "~/Library/Application Support/discord/"
+    # - "~/Library/Application Support/Slack/"
+    # - "~/Library/Application Support/Signal/"
+
+# ============================================================
+# P2 — 中等级: 可重新生成但有工作中断
+# ============================================================
+
+dev_secrets:
+  enabled: true
+  priority: P2
+  description: "开发凭证 (API tokens/cloud credentials/env files)"
+  paths:
+    - "~/.aws/"
+    - "~/.docker/config.json"
+    - "~/trading-lab/ft_userdata/.env"
+    # 注意: ~/.zshrc 包含 Telegram bot tokens
+    # 但封锁 .zshrc 会影响 shell 环境, 需权衡
+    # - "~/.zshrc"
+  blocked_commands: []
+
+system_credentials:
+  enabled: true
+  priority: P2
+  description: "系统级凭证和认证数据"
+  paths:
+    - "~/Library/Cookies/"
+    - "~/Library/Accounts/"
+    - "/var/db/auth.db"
+    - "/var/db/sudo/"
+    - "~/Library/Preferences/com.apple.security.cloudkeychainproxy3.keysToRegister.plist"
+    - "~/Library/Preferences/com.apple.security.ctkd-db.plist"
+    - "~/Library/Preferences/com.apple.security.sosaccount.plist"
+    - "/Library/Preferences/com.apple.security.plist"
+    - "/Library/Preferences/com.apple.security.appsandbox.plist"
+    - "/Library/Preferences/com.apple.security.systemidentities.plist"
+
+# ============================================================
+# 自定义 — 用户自行添加的保护路径
+# ============================================================
+
+custom:
+  enabled: false
+  priority: P2
+  description: "用户自定义保护路径"
+  paths: []
+
+# ============================================================
+# 白名单 — AI 允许访问的工作区域
+# ============================================================
+
+whitelist:
+  description: "AI agent 的工作目录, 即使在封锁路径内也允许访问"
+  paths:
+    - "~/Desktop/"
+    - "~/Desktop/crypto-bots/framework/"
+    - "~/1984/"
+    - "~/.claude/"
+    - "/tmp/"

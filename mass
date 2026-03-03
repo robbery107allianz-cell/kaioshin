@@ -1,0 +1,677 @@
+#!/bin/bash
+# ============================================================
+# MASS — Mac AI Security Sandbox
+# Protect your Mac from AI agents accessing sensitive data
+#
+# Usage:
+#   mass install                     # First-time setup
+#   mass launch claude               # Launch AI agent in sandbox
+#   mass launch --allow <path> cmd   # Launch with temporary exception
+#   mass check <path>                # Check if a path is blocked
+#   mass rules                       # List all deny rules
+#   mass test                        # Run security tests
+#   mass scan                        # Scan for uncovered apps
+#   mass status                      # Show protection status
+#
+# Created: 2026-03-03 by 小code & Rob
+# License: MIT
+# ============================================================
+
+set -uo pipefail
+
+MASS_DIR="$(cd "$(dirname "$0")" && pwd)"
+SANDBOX_PROFILE="$MASS_DIR/configs/sandbox.sb"
+SANDBOX_TEMPLATE="$MASS_DIR/configs/sandbox.sb.template"
+USER_HOME="$HOME"
+
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+# ============================================================
+# Command: install — First-time setup
+# ============================================================
+cmd_install() {
+  echo -e "${CYAN}${BOLD}"
+  echo "  ╔══════════════════════════════════════╗"
+  echo "  ║     MASS — Setup Wizard              ║"
+  echo "  ╚══════════════════════════════════════╝"
+  echo -e "${NC}"
+
+  # 1. Check prerequisites
+  echo -e "${CYAN}[1/4] Checking prerequisites...${NC}"
+
+  if ! command -v sandbox-exec >/dev/null 2>&1; then
+    echo -e "  ${RED}ERROR: sandbox-exec not found.${NC}"
+    echo "  MASS requires macOS with sandbox-exec."
+    echo "  This tool is available on macOS 10.5+ (including macOS 15+)."
+    exit 1
+  fi
+  echo -e "  ${GREEN}✓${NC} sandbox-exec found: $(which sandbox-exec)"
+
+  if [ ! -f "$SANDBOX_TEMPLATE" ]; then
+    echo -e "  ${RED}ERROR: Template not found: $SANDBOX_TEMPLATE${NC}"
+    exit 1
+  fi
+  echo -e "  ${GREEN}✓${NC} Template found"
+  echo -e "  ${GREEN}✓${NC} User: $(whoami)"
+  echo -e "  ${GREEN}✓${NC} Home: $USER_HOME"
+  echo ""
+
+  # 2. Generate sandbox.sb from template
+  echo -e "${CYAN}[2/4] Generating sandbox profile...${NC}"
+  sed "s|__HOME__|$USER_HOME|g" "$SANDBOX_TEMPLATE" > "$SANDBOX_PROFILE"
+  local rule_count
+  rule_count=$(grep -c "^(deny" "$SANDBOX_PROFILE")
+  echo -e "  ${GREEN}✓${NC} Generated $SANDBOX_PROFILE"
+  echo -e "  ${GREEN}✓${NC} $rule_count deny rules active"
+  echo ""
+
+  # 3. Quick scan for installed apps
+  echo -e "${CYAN}[3/4] Scanning installed apps...${NC}"
+  local found=0
+
+  # Check which protected apps actually exist
+  local browser_paths=(
+    "Google/Chrome" "Firefox" "Safari" "Microsoft Edge"
+    "BraveSoftware" "Arc" "Chromium" "com.operasoftware.Opera"
+    "Vivaldi" "TorBrowser-Data"
+  )
+  for bp in "${browser_paths[@]}"; do
+    if [ -d "$USER_HOME/Library/Application Support/$bp" ] || [ -d "$USER_HOME/Library/$bp" ]; then
+      echo -e "  ${GREEN}■${NC} Browser: $bp ${GREEN}PROTECTED${NC}"
+      ((found++))
+    fi
+  done
+
+  local wallet_paths=("OKX" "Binance" "Gate" "@trezor" "Coinbase" "Exodus" "Ledger Live" "TradingView")
+  for wp in "${wallet_paths[@]}"; do
+    if [ -d "$USER_HOME/Library/Application Support/$wp" ]; then
+      echo -e "  ${GREEN}■${NC} Crypto: $wp ${GREEN}PROTECTED${NC}"
+      ((found++))
+    fi
+  done
+
+  local msg_containers=("com.tencent.xinWeChat" "ru.keepcoder.Telegram" "net.whatsapp.WhatsApp" "com.tinyspeck.slackmacgap" "com.apple.MobileSMS")
+  for mc in "${msg_containers[@]}"; do
+    if [ -d "$USER_HOME/Library/Containers/$mc" ]; then
+      echo -e "  ${GREEN}■${NC} Messaging: $mc ${GREEN}PROTECTED${NC}"
+      ((found++))
+    fi
+  done
+
+  local msg_apps=("Signal" "discord")
+  for ma in "${msg_apps[@]}"; do
+    if [ -d "$USER_HOME/Library/Application Support/$ma" ]; then
+      echo -e "  ${GREEN}■${NC} Messaging: $ma ${GREEN}PROTECTED${NC}"
+      ((found++))
+    fi
+  done
+
+  # Always-present system items
+  [ -d "$USER_HOME/Library/Keychains" ] && echo -e "  ${GREEN}■${NC} Keychain ${GREEN}PROTECTED${NC}" && ((found++))
+  [ -d "$USER_HOME/.ssh" ] && echo -e "  ${GREEN}■${NC} SSH keys ${GREEN}PROTECTED${NC}" && ((found++))
+  [ -d "$USER_HOME/.gnupg" ] && echo -e "  ${GREEN}■${NC} GPG keys ${GREEN}PROTECTED${NC}" && ((found++))
+  [ -d "$USER_HOME/.aws" ] && echo -e "  ${GREEN}■${NC} AWS credentials ${GREEN}PROTECTED${NC}" && ((found++))
+
+  echo -e "  Found $found sensitive items on this Mac"
+  echo ""
+
+  # 4. Run verification
+  echo -e "${CYAN}[4/4] Verifying sandbox...${NC}"
+  local pass=0
+  local total=0
+
+  # Test Keychain
+  ((total++))
+  if ! sandbox-exec -f "$SANDBOX_PROFILE" ls "$USER_HOME/Library/Keychains/" >/dev/null 2>&1; then
+    echo -e "  ${GREEN}✓${NC} Keychain blocked"
+    ((pass++))
+  else
+    echo -e "  ${RED}✗${NC} Keychain NOT blocked"
+  fi
+
+  # Test security command
+  ((total++))
+  if ! sandbox-exec -f "$SANDBOX_PROFILE" /usr/bin/security list-keychains >/dev/null 2>&1; then
+    echo -e "  ${GREEN}✓${NC} security command blocked"
+    ((pass++))
+  else
+    echo -e "  ${RED}✗${NC} security command NOT blocked"
+  fi
+
+  # Test SSH
+  if [ -d "$USER_HOME/.ssh" ]; then
+    ((total++))
+    if ! sandbox-exec -f "$SANDBOX_PROFILE" ls "$USER_HOME/.ssh/" >/dev/null 2>&1; then
+      echo -e "  ${GREEN}✓${NC} SSH keys blocked"
+      ((pass++))
+    else
+      echo -e "  ${RED}✗${NC} SSH keys NOT blocked"
+    fi
+  fi
+
+  # Test work directory (should be allowed)
+  ((total++))
+  if sandbox-exec -f "$SANDBOX_PROFILE" ls "$USER_HOME/Desktop/" >/dev/null 2>&1; then
+    echo -e "  ${GREEN}✓${NC} Desktop accessible (work directory)"
+    ((pass++))
+  else
+    echo -e "  ${RED}✗${NC} Desktop blocked (should be allowed!)"
+  fi
+
+  echo ""
+
+  if [ "$pass" -eq "$total" ]; then
+    echo -e "${GREEN}${BOLD}  ══════════════════════════════════════${NC}"
+    echo -e "${GREEN}${BOLD}  MASS installed successfully! ($pass/$total tests passed)${NC}"
+    echo -e "${GREEN}${BOLD}  ══════════════════════════════════════${NC}"
+  else
+    echo -e "${YELLOW}  Installed with warnings: $pass/$total tests passed${NC}"
+  fi
+
+  echo ""
+  echo "  Quick start:"
+  echo -e "    ${CYAN}mass launch claude${NC}    Launch Claude Code in sandbox"
+  echo -e "    ${CYAN}mass launch cursor${NC}    Launch Cursor in sandbox"
+  echo -e "    ${CYAN}mass rules${NC}            See all blocked paths"
+  echo -e "    ${CYAN}mass scan${NC}             Find uncovered apps"
+  echo ""
+  echo "  Optional: add to your shell profile:"
+  echo -e "    ${YELLOW}alias claude-safe='$(cd "$MASS_DIR" && pwd)/mass launch claude'${NC}"
+}
+
+# ============================================================
+# Command: launch — Launch AI agent in sandbox
+# ============================================================
+cmd_launch() {
+  local allow_paths=()
+  local cmd_args=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --allow)
+        shift
+        if [ -z "${1:-}" ]; then
+          echo -e "${RED}[MASS] --allow requires a path${NC}"
+          exit 1
+        fi
+        local resolved
+        resolved=$(eval echo "$1")
+        allow_paths+=("$resolved")
+        shift
+        ;;
+      *)
+        cmd_args+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  if [ ${#cmd_args[@]} -eq 0 ]; then
+    echo -e "${RED}[MASS] Please specify a command to launch${NC}"
+    echo "  Usage: mass launch claude"
+    echo "  Allow: mass launch --allow ~/.ssh claude"
+    exit 1
+  fi
+
+  if [ ! -f "$SANDBOX_PROFILE" ]; then
+    echo -e "${RED}[MASS] Sandbox profile not found. Run 'mass install' first.${NC}"
+    exit 1
+  fi
+
+  local profile_to_use="$SANDBOX_PROFILE"
+
+  # Generate temporary profile with exceptions (remove matching deny rules)
+  if [ ${#allow_paths[@]} -gt 0 ]; then
+    local tmp_profile
+    tmp_profile=$(mktemp /tmp/mass-sandbox-XXXXXX.sb)
+
+    echo ";; MASS — Temporary profile with exceptions" > "$tmp_profile"
+    echo "(version 1)" >> "$tmp_profile"
+    echo "(allow default)" >> "$tmp_profile"
+    echo "" >> "$tmp_profile"
+
+    while IFS= read -r line; do
+      local skip=false
+      local rule_path
+      rule_path=$(echo "$line" | sed -n 's/.*"\([^"]*\)".*/\1/p')
+      if [ -n "$rule_path" ]; then
+        for p in "${allow_paths[@]}"; do
+          if [[ "$rule_path" == "$p"* ]] || [[ "$p" == "$rule_path"* ]]; then
+            skip=true
+            break
+          fi
+        done
+      fi
+      if ! $skip; then
+        echo "$line" >> "$tmp_profile"
+      fi
+    done < <(grep "^(deny" "$SANDBOX_PROFILE")
+
+    profile_to_use="$tmp_profile"
+  fi
+
+  # Dynamic rule count
+  local deny_count
+  deny_count=$(grep -c "^(deny" "$profile_to_use")
+
+  echo -e "${CYAN}╔══════════════════════════════════════╗${NC}"
+  echo -e "${CYAN}║     MASS — AI Security Sandbox       ║${NC}"
+  echo -e "${CYAN}╠══════════════════════════════════════╣${NC}"
+  echo -e "${CYAN}║${NC} ${GREEN}■${NC} $deny_count deny rules active"
+  echo -e "${CYAN}╠══════════════════════════════════════╣${NC}"
+  if [ ${#allow_paths[@]} -gt 0 ]; then
+    for p in "${allow_paths[@]}"; do
+      echo -e "${CYAN}║${NC} ${YELLOW}⚠ Exception:${NC} $p"
+    done
+    echo -e "${CYAN}╠══════════════════════════════════════╣${NC}"
+  fi
+  echo -e "${CYAN}║${NC} Launching: ${YELLOW}${cmd_args[*]}${NC}"
+  echo -e "${CYAN}╚══════════════════════════════════════╝${NC}"
+  echo ""
+
+  sandbox-exec -f "$profile_to_use" "${cmd_args[@]}"
+  local exit_code=$?
+
+  if [ "$profile_to_use" != "$SANDBOX_PROFILE" ]; then
+    rm -f "$profile_to_use"
+  fi
+
+  return $exit_code
+}
+
+# ============================================================
+# Command: check — Diagnose if a path is blocked
+# ============================================================
+cmd_check() {
+  if [ -z "${1:-}" ]; then
+    echo -e "${RED}[MASS] Please specify a path${NC}"
+    echo "  Usage: mass check ~/.ssh/id_ed25519"
+    exit 1
+  fi
+
+  if [ ! -f "$SANDBOX_PROFILE" ]; then
+    echo -e "${RED}[MASS] Sandbox profile not found. Run 'mass install' first.${NC}"
+    exit 1
+  fi
+
+  local target
+  target=$(eval echo "$1")
+
+  echo -e "${CYAN}[MASS] Path Diagnosis${NC}"
+  echo "  Path: $target"
+  echo ""
+
+  if [ ! -e "$target" ]; then
+    echo -e "  ${YELLOW}Path does not exist${NC}"
+    echo "  If you got 'No such file' in sandbox, the path itself may not exist."
+    return
+  fi
+
+  local inside_ok=false
+  if [ -d "$target" ]; then
+    sandbox-exec -f "$SANDBOX_PROFILE" ls "$target" >/dev/null 2>&1 && inside_ok=true
+  else
+    sandbox-exec -f "$SANDBOX_PROFILE" cat "$target" >/dev/null 2>&1 && inside_ok=true
+  fi
+
+  if $inside_ok; then
+    echo -e "  Status: ${GREEN}ALLOWED${NC} — not blocked by MASS"
+  else
+    echo -e "  Status: ${RED}BLOCKED${NC} — blocked by MASS sandbox"
+    echo ""
+
+    echo "  Matching rule:"
+    local found_rule=false
+    while IFS= read -r line; do
+      local rule_path
+      rule_path=$(echo "$line" | sed -n 's/.*"\([^"]*\)".*/\1/p')
+      if [ -n "$rule_path" ] && [[ "$target" == "$rule_path"* ]]; then
+        echo -e "    ${RED}→${NC} $line"
+        found_rule=true
+      fi
+    done < <(grep "^(deny" "$SANDBOX_PROFILE")
+
+    if ! $found_rule; then
+      echo -e "    ${YELLOW}(No path rule matched — may be device or process-exec rule)${NC}"
+    fi
+
+    echo ""
+    echo "  To unblock:"
+    echo -e "    ${CYAN}Temporary:${NC} mass launch --allow \"$(dirname "$target")\" <command>"
+    echo -e "    ${CYAN}Permanent:${NC} Edit $SANDBOX_PROFILE and remove the deny rule"
+  fi
+}
+
+# ============================================================
+# Command: rules — List all deny rules (human-readable)
+# ============================================================
+cmd_rules() {
+  echo -e "${CYAN}[MASS] All Deny Rules${NC}"
+  echo "=================================="
+  echo ""
+
+  if [ ! -f "$SANDBOX_PROFILE" ]; then
+    echo -e "  ${RED}Sandbox profile not found. Run 'mass install' first.${NC}"
+    return
+  fi
+
+  local n=0
+  while IFS= read -r line; do
+    if [[ "$line" == "(deny "* ]]; then
+      ((n++))
+      if [[ "$line" == *"device-"* ]]; then
+        local rule_type
+        rule_type=$(echo "$line" | sed -n 's/.*(deny \(device-[a-z]*\)).*/\1/p')
+        echo -e "  ${RED}$n.${NC} Hardware: $rule_type"
+      elif [[ "$line" == *"process-exec"* ]]; then
+        local rule_target
+        rule_target=$(echo "$line" | sed -n 's/.*"\([^"]*\)".*/\1/p')
+        echo -e "  ${RED}$n.${NC} Command:  $rule_target"
+      elif [[ "$line" == *"file-read"* ]]; then
+        local rule_target
+        rule_target=$(echo "$line" | sed -n 's/.*"\([^"]*\)".*/\1/p')
+        echo -e "  ${RED}$n.${NC} Read:     $rule_target"
+      else
+        echo -e "  ${RED}$n.${NC} $line"
+      fi
+    fi
+  done < "$SANDBOX_PROFILE"
+
+  echo ""
+  echo "=================================="
+  echo -e "  Total: ${GREEN}$n${NC} rules"
+  echo ""
+  echo "  Diagnose:  mass check <path>"
+  echo "  Override:  mass launch --allow <path> <command>"
+}
+
+# ============================================================
+# Command: test — Verify sandbox is working
+# ============================================================
+cmd_test() {
+  echo -e "${CYAN}[MASS] Security Verification${NC}"
+  echo "=================================="
+
+  if [ ! -f "$SANDBOX_PROFILE" ]; then
+    echo -e "  ${RED}Sandbox profile not found. Run 'mass install' first.${NC}"
+    return
+  fi
+
+  local pass=0
+  local fail=0
+
+  _test_blocked() {
+    local label="$1"
+    local test_cmd="$2"
+    printf "  %-24s" "$label"
+    if eval "sandbox-exec -f \"$SANDBOX_PROFILE\" $test_cmd" >/dev/null 2>&1; then
+      echo -e "${RED}FAIL (accessible!)${NC}"; ((fail++))
+    else
+      echo -e "${GREEN}BLOCKED ✓${NC}"; ((pass++))
+    fi
+  }
+
+  _test_allowed() {
+    local label="$1"
+    local test_cmd="$2"
+    printf "  %-24s"  "$label"
+    if eval "sandbox-exec -f \"$SANDBOX_PROFILE\" $test_cmd" >/dev/null 2>&1; then
+      echo -e "${GREEN}ALLOWED ✓${NC}"; ((pass++))
+    else
+      echo -e "${RED}FAIL (blocked!)${NC}"; ((fail++))
+    fi
+  }
+
+  # Core tests (always run)
+  _test_blocked "Keychain" "ls '$USER_HOME/Library/Keychains/'"
+  _test_blocked "security command" "/usr/bin/security list-keychains"
+  _test_blocked "Cookies" "ls '$USER_HOME/Library/Cookies/'"
+
+  # Conditional tests (only if path exists)
+  [ -d "$USER_HOME/.ssh" ] && _test_blocked "SSH keys" "ls '$USER_HOME/.ssh/'"
+  [ -d "$USER_HOME/.gnupg" ] && _test_blocked "GPG keys" "ls '$USER_HOME/.gnupg/'"
+  [ -d "$USER_HOME/.aws" ] && _test_blocked "AWS credentials" "ls '$USER_HOME/.aws/'"
+
+  # Browser tests
+  [ -d "$USER_HOME/Library/Application Support/Google/Chrome" ] && \
+    _test_blocked "Chrome" "ls '$USER_HOME/Library/Application Support/Google/Chrome/'"
+  [ -d "$USER_HOME/Library/Application Support/Firefox" ] && \
+    _test_blocked "Firefox" "ls '$USER_HOME/Library/Application Support/Firefox/'"
+
+  # Messaging tests
+  [ -d "$USER_HOME/Library/Containers/com.tencent.xinWeChat" ] && \
+    _test_blocked "WeChat" "ls '$USER_HOME/Library/Containers/com.tencent.xinWeChat/'"
+  [ -d "$USER_HOME/Library/Containers/ru.keepcoder.Telegram" ] && \
+    _test_blocked "Telegram" "ls '$USER_HOME/Library/Containers/ru.keepcoder.Telegram/'"
+
+  # Whitelist test (should always pass)
+  _test_allowed "Desktop (allowed)" "ls '$USER_HOME/Desktop/'"
+
+  echo "=================================="
+  echo -e "  Result: ${GREEN}$pass PASSED${NC}  ${RED}$fail FAILED${NC}"
+
+  if [ "$fail" -eq 0 ]; then
+    echo -e "  ${GREEN}All tests passed! Sandbox is working.${NC}"
+  else
+    echo -e "  ${RED}Some tests failed. Check your sandbox.sb configuration.${NC}"
+  fi
+}
+
+# ============================================================
+# Command: scan — Scan for uncovered sensitive apps
+# ============================================================
+cmd_scan() {
+  echo -e "${CYAN}[MASS] Scanning for uncovered sensitive apps${NC}"
+  echo "=================================="
+
+  if [ ! -f "$SANDBOX_PROFILE" ]; then
+    echo -e "  ${RED}Sandbox profile not found. Run 'mass install' first.${NC}"
+    return
+  fi
+
+  # Auto-extract protected paths from sandbox.sb
+  local -a protected_paths=()
+  while IFS= read -r line; do
+    local p
+    p=$(echo "$line" | sed -n 's/.*"\([^"]*\)".*/\1/p')
+    [ -n "$p" ] && protected_paths+=("$p")
+  done < <(grep "^(deny file-read" "$SANDBOX_PROFILE")
+
+  # Known safe apps (dev tools, system processes)
+  local ignored_patterns=("com.apple." "Code" "Claude" "obsidian" "Docker Desktop" "com.docker.docker")
+
+  local found_new=0
+
+  _is_covered() {
+    local path="$1"
+    local bname
+    bname=$(basename "$path")
+    # Skip parent directories
+    [[ "$bname" == "Application Support" ]] && return 0
+    [[ "$bname" == "Containers" ]] && return 0
+    # Check against protected paths
+    for pp in "${protected_paths[@]}"; do
+      [[ "$path" == "$pp"* ]] && return 0
+      [[ "$pp" == "$path"* ]] && return 0
+    done
+    # Check against ignored patterns
+    for ign in "${ignored_patterns[@]}"; do
+      [[ "$bname" == *"$ign"* ]] && return 0
+    done
+    return 1
+  }
+
+  # Scan browsers / Electron apps
+  echo ""
+  echo -e "  ${CYAN}[Browsers / Electron Apps]${NC}"
+  local indicators=("Login Data" "logins.json" "cookies.sqlite" "Cookies" "key4.db")
+  while IFS= read -r dir; do
+    _is_covered "$dir" && continue
+    for ind in "${indicators[@]}"; do
+      if find "$dir" -maxdepth 3 -name "$ind" -print -quit 2>/dev/null | grep -q .; then
+        echo -e "    ${YELLOW}⚠${NC} $(basename "$dir")"
+        echo -e "      Path: $dir"
+        echo -e "      Contains: $ind"
+        ((found_new++))
+        break
+      fi
+    done
+  done < <(find "$USER_HOME/Library/Application Support" -maxdepth 1 -type d 2>/dev/null)
+
+  # Scan large containers
+  echo ""
+  echo -e "  ${CYAN}[Large Containers (>50MB)]${NC}"
+  while IFS= read -r dir; do
+    _is_covered "$dir" && continue
+    local sz
+    sz=$(du -sm "$dir" 2>/dev/null | cut -f1)
+    if [ "${sz:-0}" -gt 50 ]; then
+      echo -e "    ${YELLOW}⚠${NC} $(basename "$dir") (${sz}MB)"
+      echo -e "      Path: $dir"
+      ((found_new++))
+    fi
+  done < <(find "$USER_HOME/Library/Containers" -maxdepth 1 -type d 2>/dev/null)
+
+  # Scan for crypto wallets
+  echo ""
+  echo -e "  ${CYAN}[Crypto Wallets]${NC}"
+  local wallet_kw=("wallet" "exodus" "ledger" "trezor" "metamask" "phantom" "trust" "coinbase")
+  while IFS= read -r dir; do
+    _is_covered "$dir" && continue
+    local lower
+    lower=$(echo "$dir" | tr '[:upper:]' '[:lower:]')
+    for kw in "${wallet_kw[@]}"; do
+      if [[ "$lower" == *"$kw"* ]]; then
+        echo -e "    ${RED}⚠ Wallet:${NC} $(basename "$dir")"
+        echo -e "      Path: $dir"
+        ((found_new++))
+        break
+      fi
+    done
+  done < <(find "$USER_HOME/Library/Application Support" -maxdepth 1 -type d 2>/dev/null)
+
+  echo ""
+  echo "=================================="
+  if [ "$found_new" -eq 0 ]; then
+    echo -e "  ${GREEN}No uncovered sensitive apps found. Protection is complete.${NC}"
+  else
+    echo -e "  ${YELLOW}Found $found_new uncovered items.${NC}"
+    echo "  To protect them, add deny rules to:"
+    echo -e "  ${CYAN}$SANDBOX_PROFILE${NC}"
+    echo ""
+    echo "  Or add to the template for future installs:"
+    echo -e "  ${CYAN}$SANDBOX_TEMPLATE${NC}"
+  fi
+}
+
+# ============================================================
+# Command: status — Show protection status
+# ============================================================
+cmd_status() {
+  echo -e "${CYAN}╔══════════════════════════════════════╗${NC}"
+  echo -e "${CYAN}║     MASS — Protection Status         ║${NC}"
+  echo -e "${CYAN}╚══════════════════════════════════════╝${NC}"
+  echo ""
+  echo "  Profile:      $SANDBOX_PROFILE"
+  echo "  sandbox-exec: $(which sandbox-exec 2>/dev/null || echo 'NOT FOUND')"
+  echo "  User:         $(whoami)"
+  echo ""
+
+  if [ -f "$SANDBOX_PROFILE" ]; then
+    local deny_count
+    deny_count=$(grep -c "^(deny" "$SANDBOX_PROFILE")
+    echo -e "  Deny rules: ${GREEN}$deny_count${NC}"
+    echo ""
+    echo "  Categories:"
+
+    # Count dynamically from sandbox.sb
+    local hw=0 browsers=0 crypto=0 keychain=0 keys=0 msg=0 dev=0 sys=0
+    while IFS= read -r line; do
+      case "$line" in
+        *device-*) ((hw++)) ;;
+        *Chrome*|*Firefox*|*Safari*|*Edge*|*Brave*|*Arc*|*Chromium*|*Opera*|*Vivaldi*|*TorBrowser*) ((browsers++)) ;;
+        *OKX*|*Binance*|*Gate*|*trezor*|*Coinbase*|*Exodus*|*Ledger*|*TradingView*) ((crypto++)) ;;
+        *Keychains*|*security*) ((keychain++)) ;;
+        *.ssh*|*.gnupg*) ((keys++)) ;;
+        *WeChat*|*Telegram*|*Signal*|*discord*|*WhatsApp*|*slackmacgap*|*MobileSMS*|*dingtalk*|*tencent.meeting*|*tencent.qq*) ((msg++)) ;;
+        *.aws*|*.docker*|*.kube*|*.npmrc*|*.pypirc*) ((dev++)) ;;
+        *Cookies*|*Accounts*) ((sys++)) ;;
+      esac
+    done < <(grep "^(deny" "$SANDBOX_PROFILE")
+
+    [ "$hw" -gt 0 ] && echo -e "    ${GREEN}■${NC} Hardware (camera/microphone): $hw rules"
+    [ "$browsers" -gt 0 ] && echo -e "    ${GREEN}■${NC} Browsers: $browsers rules"
+    [ "$crypto" -gt 0 ] && echo -e "    ${GREEN}■${NC} Crypto exchanges/wallets: $crypto rules"
+    [ "$keychain" -gt 0 ] && echo -e "    ${GREEN}■${NC} Keychain + security: $keychain rules"
+    [ "$keys" -gt 0 ] && echo -e "    ${GREEN}■${NC} SSH/GPG keys: $keys rules"
+    [ "$msg" -gt 0 ] && echo -e "    ${GREEN}■${NC} Messaging apps: $msg rules"
+    [ "$dev" -gt 0 ] && echo -e "    ${GREEN}■${NC} Developer credentials: $dev rules"
+    [ "$sys" -gt 0 ] && echo -e "    ${GREEN}■${NC} System credentials: $sys rules"
+  else
+    echo -e "  ${RED}No sandbox profile found. Run 'mass install' first.${NC}"
+  fi
+}
+
+# ============================================================
+# Main entry point
+# ============================================================
+case "${1:-}" in
+  install)
+    cmd_install
+    ;;
+  launch)
+    shift
+    cmd_launch "$@"
+    ;;
+  test)
+    cmd_test
+    ;;
+  scan)
+    cmd_scan
+    ;;
+  status)
+    cmd_status
+    ;;
+  check)
+    shift
+    cmd_check "$@"
+    ;;
+  rules)
+    cmd_rules
+    ;;
+  -h|--help|"")
+    echo "MASS — Mac AI Security Sandbox"
+    echo ""
+    echo "Protect your Mac from AI agents accessing sensitive local data."
+    echo "Uses macOS sandbox-exec for kernel-level process isolation."
+    echo ""
+    echo "Setup:"
+    echo "  mass install                       First-time setup (generates sandbox profile)"
+    echo ""
+    echo "Daily use:"
+    echo "  mass launch <command>              Launch command in sandbox"
+    echo "  mass launch --allow <path> <cmd>   Launch with temporary path exception"
+    echo ""
+    echo "Diagnostics:"
+    echo "  mass check <path>                  Check if a path is blocked"
+    echo "  mass rules                         List all deny rules"
+    echo "  mass test                          Run security verification tests"
+    echo "  mass scan                          Scan for uncovered sensitive apps"
+    echo "  mass status                        Show protection status"
+    echo ""
+    echo "Examples:"
+    echo "  mass launch claude                 Launch Claude Code in sandbox"
+    echo "  mass launch cursor                 Launch Cursor in sandbox"
+    echo "  mass check ~/.ssh/id_rsa           Check if SSH key is blocked"
+    echo "  mass launch --allow ~/.ssh claude   Temporarily allow SSH access"
+    echo ""
+    echo "Created by 小code & Rob | MIT License"
+    echo "https://github.com/anthropics/mass"
+    ;;
+esac

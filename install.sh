@@ -5,14 +5,14 @@
 
 set -uo pipefail
 
-INSTALL_DIR="${MASS_INSTALL_DIR:-$HOME/.mass}"
+INSTALL_DIR="${KAIOSHIN_INSTALL_DIR:-$HOME/.kaioshin}"
 
-echo "MASS — Mac AI Security Sandbox"
+echo "Kaioshin 界王神 — Mac AI Security Sandbox"
 echo ""
 
 # Check if already cloned (running from repo)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-if [ -f "$SCRIPT_DIR/mass" ] && [ -f "$SCRIPT_DIR/configs/sandbox.sb.template" ]; then
+if [ -f "$SCRIPT_DIR/kaioshin" ] && [ -f "$SCRIPT_DIR/configs/sandbox.sb.template" ]; then
   echo "Running from local repo: $SCRIPT_DIR"
   INSTALL_DIR="$SCRIPT_DIR"
 else
@@ -22,20 +22,21 @@ else
     cd "$INSTALL_DIR" && git pull --quiet
   else
     echo "Installing to $INSTALL_DIR..."
-    git clone --quiet https://github.com/anthropics/mass.git "$INSTALL_DIR"
+    git clone --quiet https://github.com/rob-hn/kaioshin.git "$INSTALL_DIR"
   fi
 fi
 
 cd "$INSTALL_DIR"
-chmod +x mass
+chmod +x kaioshin
 
 # Run install
-./mass install
+./kaioshin install
 
 echo ""
 echo "Add to your PATH (optional):"
 echo "  echo 'export PATH=\"$INSTALL_DIR:\$PATH\"' >> ~/.zshrc"
 echo ""
 echo "Or create aliases:"
-echo "  echo 'alias mass=\"$INSTALL_DIR/mass\"' >> ~/.zshrc"
-echo "  echo 'alias claude-safe=\"$INSTALL_DIR/mass launch claude\"' >> ~/.zshrc"
+echo "  echo 'alias kaioshin=\"$INSTALL_DIR/kaioshin\"' >> ~/.zshrc"
+echo "  echo 'alias ks=\"$INSTALL_DIR/kaioshin\"' >> ~/.zshrc"
+echo "  echo 'alias claude-safe=\"$INSTALL_DIR/kaioshin launch claude\"' >> ~/.zshrc"

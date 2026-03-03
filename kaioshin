@@ -1,17 +1,17 @@
 #!/bin/bash
 # ============================================================
-# MASS — Mac AI Security Sandbox
-# Protect your Mac from AI agents accessing sensitive data
+# Kaioshin — Mac AI Security Sandbox
+# The Supreme Kai of your Mac
 #
 # Usage:
-#   mass install                     # First-time setup
-#   mass launch claude               # Launch AI agent in sandbox
-#   mass launch --allow <path> cmd   # Launch with temporary exception
-#   mass check <path>                # Check if a path is blocked
-#   mass rules                       # List all deny rules
-#   mass test                        # Run security tests
-#   mass scan                        # Scan for uncovered apps
-#   mass status                      # Show protection status
+#   kaioshin install                     # First-time setup
+#   kaioshin launch claude               # Launch AI agent in sandbox
+#   kaioshin launch --allow <path> cmd   # Launch with temporary exception
+#   kaioshin check <path>                # Check if a path is blocked
+#   kaioshin rules                       # List all deny rules
+#   kaioshin test                        # Run security tests
+#   kaioshin scan                        # Scan for uncovered apps
+#   kaioshin status                      # Show protection status
 #
 # Created: 2026-03-03 by 小code & Rob
 # License: MIT
@@ -38,7 +38,8 @@ NC='\033[0m'
 cmd_install() {
   echo -e "${CYAN}${BOLD}"
   echo "  ╔══════════════════════════════════════╗"
-  echo "  ║     MASS — Setup Wizard              ║"
+  echo "  ║  Kaioshin — Setup Wizard             ║"
+  echo "  ║  界王神 · The Supreme Kai of your Mac ║"
   echo "  ╚══════════════════════════════════════╝"
   echo -e "${NC}"
 
@@ -168,7 +169,7 @@ cmd_install() {
 
   if [ "$pass" -eq "$total" ]; then
     echo -e "${GREEN}${BOLD}  ══════════════════════════════════════${NC}"
-    echo -e "${GREEN}${BOLD}  MASS installed successfully! ($pass/$total tests passed)${NC}"
+    echo -e "${GREEN}${BOLD}  Kaioshin installed! ($pass/$total tests passed)${NC}"
     echo -e "${GREEN}${BOLD}  ══════════════════════════════════════${NC}"
   else
     echo -e "${YELLOW}  Installed with warnings: $pass/$total tests passed${NC}"
@@ -176,13 +177,14 @@ cmd_install() {
 
   echo ""
   echo "  Quick start:"
-  echo -e "    ${CYAN}mass launch claude${NC}    Launch Claude Code in sandbox"
-  echo -e "    ${CYAN}mass launch cursor${NC}    Launch Cursor in sandbox"
-  echo -e "    ${CYAN}mass rules${NC}            See all blocked paths"
-  echo -e "    ${CYAN}mass scan${NC}             Find uncovered apps"
+  echo -e "    ${CYAN}kaioshin launch claude${NC}    Launch Claude Code in sandbox"
+  echo -e "    ${CYAN}kaioshin launch cursor${NC}    Launch Cursor in sandbox"
+  echo -e "    ${CYAN}kaioshin rules${NC}            See all blocked paths"
+  echo -e "    ${CYAN}kaioshin scan${NC}             Find uncovered apps"
   echo ""
-  echo "  Optional: add to your shell profile:"
-  echo -e "    ${YELLOW}alias claude-safe='$(cd "$MASS_DIR" && pwd)/mass launch claude'${NC}"
+  echo "  Optional: add alias to your shell profile:"
+  echo -e "    ${YELLOW}alias ks='$(cd "$MASS_DIR" && pwd)/kaioshin'${NC}"
+  echo -e "    ${YELLOW}alias claude-safe='$(cd "$MASS_DIR" && pwd)/kaioshin launch claude'${NC}"
 }
 
 # ============================================================
@@ -197,7 +199,7 @@ cmd_launch() {
       --allow)
         shift
         if [ -z "${1:-}" ]; then
-          echo -e "${RED}[MASS] --allow requires a path${NC}"
+          echo -e "${RED}[Kaioshin] --allow requires a path${NC}"
           exit 1
         fi
         local resolved
@@ -213,14 +215,14 @@ cmd_launch() {
   done
 
   if [ ${#cmd_args[@]} -eq 0 ]; then
-    echo -e "${RED}[MASS] Please specify a command to launch${NC}"
-    echo "  Usage: mass launch claude"
-    echo "  Allow: mass launch --allow ~/.ssh claude"
+    echo -e "${RED}[Kaioshin] Please specify a command to launch${NC}"
+    echo "  Usage: kaioshin launch claude"
+    echo "  Allow: kaioshin launch --allow ~/.ssh claude"
     exit 1
   fi
 
   if [ ! -f "$SANDBOX_PROFILE" ]; then
-    echo -e "${RED}[MASS] Sandbox profile not found. Run 'mass install' first.${NC}"
+    echo -e "${RED}[Kaioshin] Sandbox profile not found. Run 'kaioshin install' first.${NC}"
     exit 1
   fi
 
@@ -261,7 +263,7 @@ cmd_launch() {
   deny_count=$(grep -c "^(deny" "$profile_to_use")
 
   echo -e "${CYAN}╔══════════════════════════════════════╗${NC}"
-  echo -e "${CYAN}║     MASS — AI Security Sandbox       ║${NC}"
+  echo -e "${CYAN}║     Kaioshin — AI Security Sandbox       ║${NC}"
   echo -e "${CYAN}╠══════════════════════════════════════╣${NC}"
   echo -e "${CYAN}║${NC} ${GREEN}■${NC} $deny_count deny rules active"
   echo -e "${CYAN}╠══════════════════════════════════════╣${NC}"
@@ -290,20 +292,20 @@ cmd_launch() {
 # ============================================================
 cmd_check() {
   if [ -z "${1:-}" ]; then
-    echo -e "${RED}[MASS] Please specify a path${NC}"
-    echo "  Usage: mass check ~/.ssh/id_ed25519"
+    echo -e "${RED}[Kaioshin] Please specify a path${NC}"
+    echo "  Usage: kaioshin check ~/.ssh/id_ed25519"
     exit 1
   fi
 
   if [ ! -f "$SANDBOX_PROFILE" ]; then
-    echo -e "${RED}[MASS] Sandbox profile not found. Run 'mass install' first.${NC}"
+    echo -e "${RED}[Kaioshin] Sandbox profile not found. Run 'kaioshin install' first.${NC}"
     exit 1
   fi
 
   local target
   target=$(eval echo "$1")
 
-  echo -e "${CYAN}[MASS] Path Diagnosis${NC}"
+  echo -e "${CYAN}[Kaioshin] Path Diagnosis${NC}"
   echo "  Path: $target"
   echo ""
 
@@ -343,7 +345,7 @@ cmd_check() {
 
     echo ""
     echo "  To unblock:"
-    echo -e "    ${CYAN}Temporary:${NC} mass launch --allow \"$(dirname "$target")\" <command>"
+    echo -e "    ${CYAN}Temporary:${NC} kaioshin launch --allow \"$(dirname "$target")\" <command>"
     echo -e "    ${CYAN}Permanent:${NC} Edit $SANDBOX_PROFILE and remove the deny rule"
   fi
 }
@@ -352,12 +354,12 @@ cmd_check() {
 # Command: rules — List all deny rules (human-readable)
 # ============================================================
 cmd_rules() {
-  echo -e "${CYAN}[MASS] All Deny Rules${NC}"
+  echo -e "${CYAN}[Kaioshin] All Deny Rules${NC}"
   echo "=================================="
   echo ""
 
   if [ ! -f "$SANDBOX_PROFILE" ]; then
-    echo -e "  ${RED}Sandbox profile not found. Run 'mass install' first.${NC}"
+    echo -e "  ${RED}Sandbox profile not found. Run 'kaioshin install' first.${NC}"
     return
   fi
 
@@ -387,19 +389,19 @@ cmd_rules() {
   echo "=================================="
   echo -e "  Total: ${GREEN}$n${NC} rules"
   echo ""
-  echo "  Diagnose:  mass check <path>"
-  echo "  Override:  mass launch --allow <path> <command>"
+  echo "  Diagnose:  kaioshin check <path>"
+  echo "  Override:  kaioshin launch --allow <path> <command>"
 }
 
 # ============================================================
 # Command: test — Verify sandbox is working
 # ============================================================
 cmd_test() {
-  echo -e "${CYAN}[MASS] Security Verification${NC}"
+  echo -e "${CYAN}[Kaioshin] Security Verification${NC}"
   echo "=================================="
 
   if [ ! -f "$SANDBOX_PROFILE" ]; then
-    echo -e "  ${RED}Sandbox profile not found. Run 'mass install' first.${NC}"
+    echo -e "  ${RED}Sandbox profile not found. Run 'kaioshin install' first.${NC}"
     return
   fi
 
@@ -467,11 +469,11 @@ cmd_test() {
 # Command: scan — Scan for uncovered sensitive apps
 # ============================================================
 cmd_scan() {
-  echo -e "${CYAN}[MASS] Scanning for uncovered sensitive apps${NC}"
+  echo -e "${CYAN}[Kaioshin] Scanning for uncovered sensitive apps${NC}"
   echo "=================================="
 
   if [ ! -f "$SANDBOX_PROFILE" ]; then
-    echo -e "  ${RED}Sandbox profile not found. Run 'mass install' first.${NC}"
+    echo -e "  ${RED}Sandbox profile not found. Run 'kaioshin install' first.${NC}"
     return
   fi
 
@@ -575,7 +577,7 @@ cmd_scan() {
 # ============================================================
 cmd_status() {
   echo -e "${CYAN}╔══════════════════════════════════════╗${NC}"
-  echo -e "${CYAN}║     MASS — Protection Status         ║${NC}"
+  echo -e "${CYAN}║     Kaioshin — Protection Status         ║${NC}"
   echo -e "${CYAN}╚══════════════════════════════════════╝${NC}"
   echo ""
   echo "  Profile:      $SANDBOX_PROFILE"
@@ -614,7 +616,7 @@ cmd_status() {
     [ "$dev" -gt 0 ] && echo -e "    ${GREEN}■${NC} Developer credentials: $dev rules"
     [ "$sys" -gt 0 ] && echo -e "    ${GREEN}■${NC} System credentials: $sys rules"
   else
-    echo -e "  ${RED}No sandbox profile found. Run 'mass install' first.${NC}"
+    echo -e "  ${RED}No sandbox profile found. Run 'kaioshin install' first.${NC}"
   fi
 }
 
@@ -646,32 +648,33 @@ case "${1:-}" in
     cmd_rules
     ;;
   -h|--help|"")
-    echo "MASS — Mac AI Security Sandbox"
+    echo "Kaioshin 界王神 — Mac AI Security Sandbox"
+    echo "The Supreme Kai of your Mac"
     echo ""
     echo "Protect your Mac from AI agents accessing sensitive local data."
     echo "Uses macOS sandbox-exec for kernel-level process isolation."
     echo ""
     echo "Setup:"
-    echo "  mass install                       First-time setup (generates sandbox profile)"
+    echo "  kaioshin install                       First-time setup"
     echo ""
     echo "Daily use:"
-    echo "  mass launch <command>              Launch command in sandbox"
-    echo "  mass launch --allow <path> <cmd>   Launch with temporary path exception"
+    echo "  kaioshin launch <command>              Launch in sandbox"
+    echo "  kaioshin launch --allow <path> <cmd>   Launch with exception"
     echo ""
     echo "Diagnostics:"
-    echo "  mass check <path>                  Check if a path is blocked"
-    echo "  mass rules                         List all deny rules"
-    echo "  mass test                          Run security verification tests"
-    echo "  mass scan                          Scan for uncovered sensitive apps"
-    echo "  mass status                        Show protection status"
+    echo "  kaioshin check <path>                  Check if path is blocked"
+    echo "  kaioshin rules                         List all deny rules"
+    echo "  kaioshin test                          Run security tests"
+    echo "  kaioshin scan                          Scan for uncovered apps"
+    echo "  kaioshin status                        Show protection status"
     echo ""
     echo "Examples:"
-    echo "  mass launch claude                 Launch Claude Code in sandbox"
-    echo "  mass launch cursor                 Launch Cursor in sandbox"
-    echo "  mass check ~/.ssh/id_rsa           Check if SSH key is blocked"
-    echo "  mass launch --allow ~/.ssh claude   Temporarily allow SSH access"
+    echo "  kaioshin launch claude                 Sandbox Claude Code"
+    echo "  kaioshin launch cursor                 Sandbox Cursor"
+    echo "  kaioshin check ~/.ssh/id_rsa           Diagnose blocked path"
+    echo "  kaioshin launch --allow ~/.ssh claude   Temporary exception"
     echo ""
     echo "Created by 小code & Rob | MIT License"
-    echo "https://github.com/anthropics/mass"
+    echo "https://github.com/rob-hn/kaioshin"
     ;;
 esac

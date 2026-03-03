@@ -1,16 +1,18 @@
-# MASS — Mac AI Security Sandbox
+# Kaioshin 界王神 — Mac AI Security Sandbox
 
-**Protect your Mac from AI agents accessing sensitive local data.**
+***The Supreme Kai of your Mac***
 
 AI coding agents (Claude Code, Cursor, Copilot, Windsurf, Devin) run with your full user permissions. They can read your Chrome passwords, Keychain, SSH keys, crypto wallets, and chat history — by accident or by prompt injection.
 
-MASS fixes this with one command. It uses macOS `sandbox-exec` for **kernel-level process isolation** with near-zero performance overhead.
+Kaioshin fixes this with one command. It uses macOS `sandbox-exec` for **kernel-level process isolation** with near-zero performance overhead.
 
 ```bash
-mass launch claude    # Claude Code, sandboxed
-mass launch cursor    # Cursor, sandboxed
-mass launch <any>     # Any AI agent, sandboxed
+kaioshin launch claude    # Claude Code, sandboxed
+kaioshin launch cursor    # Cursor, sandboxed
+kaioshin launch <any>     # Any AI agent, sandboxed
 ```
+
+> *In Dragon Ball, the Kaiōshin (界王神) is the Supreme Kai — the divine guardian who watches over the universe. He doesn't interfere with daily life, but sets unbreakable rules that protect against catastrophic threats. That's exactly what this tool does for your Mac.*
 
 ## What Gets Blocked
 
@@ -31,41 +33,41 @@ mass launch <any>     # Any AI agent, sandboxed
 
 ```bash
 # Clone
-git clone https://github.com/anthropics/mass.git ~/.mass
-cd ~/.mass
+git clone https://github.com/rob-hn/kaioshin.git ~/.kaioshin
+cd ~/.kaioshin
 
 # Install (auto-detects your apps, generates sandbox profile)
-./mass install
+./kaioshin install
 
 # Launch your AI agent in the sandbox
-./mass launch claude
+./kaioshin launch claude
 ```
 
 ## CLI Reference
 
 | Command | Description |
 |---------|-------------|
-| `mass install` | First-time setup: detect apps, generate sandbox, verify |
-| `mass launch <cmd>` | Launch any command inside the sandbox |
-| `mass launch --allow <path> <cmd>` | Launch with a temporary path exception |
-| `mass check <path>` | Diagnose if a path is blocked and show which rule |
-| `mass rules` | List all active deny rules |
-| `mass test` | Run security verification tests |
-| `mass scan` | Scan for newly installed apps not yet covered |
-| `mass status` | Show protection status dashboard |
+| `kaioshin install` | First-time setup: detect apps, generate sandbox, verify |
+| `kaioshin launch <cmd>` | Launch any command inside the sandbox |
+| `kaioshin launch --allow <path> <cmd>` | Launch with a temporary path exception |
+| `kaioshin check <path>` | Diagnose if a path is blocked and show which rule |
+| `kaioshin rules` | List all active deny rules |
+| `kaioshin test` | Run security verification tests |
+| `kaioshin scan` | Scan for newly installed apps not yet covered |
+| `kaioshin status` | Show protection status dashboard |
 
 ## If Something Gets Blocked
 
-AI agents sometimes need access to paths that MASS blocks. Here's the workflow:
+AI agents sometimes need access to paths that Kaioshin blocks. Here's the workflow:
 
 ```bash
-# 1. Check what's blocking you
-mass check ~/.ssh/id_rsa
+# 1. Diagnose what's blocking you
+kaioshin check ~/.ssh/id_rsa
 # → BLOCKED by: (deny file-read* (subpath "/Users/you/.ssh"))
-# → To unblock: mass launch --allow "/Users/you/.ssh" claude
+# → To unblock: kaioshin launch --allow "/Users/you/.ssh" claude
 
 # 2. Launch with temporary exception (one session only)
-mass launch --allow ~/.ssh claude
+kaioshin launch --allow ~/.ssh claude
 
 # 3. Or permanently: edit configs/sandbox.sb and remove the deny rule
 ```
@@ -76,7 +78,7 @@ The `--allow` flag removes specific deny rules for that session only. All other 
 
 ```
 ┌─────────────────────────────────────────┐
-│  mass launch claude                      │
+│  kaioshin launch claude                  │
 │                                          │
 │  ┌─────────────────────────────────┐     │
 │  │  sandbox-exec -f sandbox.sb     │     │
@@ -85,7 +87,7 @@ The `--allow` flag removes specific deny rules for that session only. All other 
 │  │  (deny file-read* Chrome/...)   │     │ ← kernel-level
 │  │  (deny file-read* Keychains/...)│     │   enforcement
 │  │  (deny device-camera)           │     │
-│  │  ...43 deny rules...            │     │
+│  │  ...44 deny rules...            │     │
 │  │                                 │     │
 │  │  → claude (runs normally)       │     │
 │  └─────────────────────────────────┘     │
@@ -105,8 +107,8 @@ The `--allow` flag removes specific deny rules for that session only. All other 
 ## Project Structure
 
 ```
-MASS/
-├── mass                        # Main CLI (bash, single file)
+kaioshin/
+├── kaioshin                    # Main CLI (bash, single file)
 ├── configs/
 │   ├── sandbox.sb.template     # Template with __HOME__ placeholders
 │   └── sandbox.sb              # Generated profile (user-specific, gitignored)
@@ -127,14 +129,15 @@ Edit `configs/sandbox.sb.template`:
 (deny file-read* (subpath "__HOME__/Library/Application Support/MyApp"))
 ```
 
-Then re-run `mass install` to regenerate.
+Then re-run `kaioshin install` to regenerate.
 
-### Add to your shell profile
+### Shell aliases
 
 ```bash
 # ~/.zshrc or ~/.bashrc
-alias claude-safe='/path/to/mass launch claude'
-alias cursor-safe='/path/to/mass launch cursor'
+alias ks='~/.kaioshin/kaioshin'
+alias claude-safe='~/.kaioshin/kaioshin launch claude'
+alias cursor-safe='~/.kaioshin/kaioshin launch cursor'
 ```
 
 ## Requirements
@@ -146,32 +149,24 @@ alias cursor-safe='/path/to/mass launch cursor'
 ## FAQ
 
 **Q: Will this break my AI agent?**
-A: No. MASS uses `(allow default)` — everything is allowed except the specific sensitive paths listed. Your code, tools, and terminal work exactly as before.
+A: No. Kaioshin uses `(allow default)` — everything is allowed except the specific sensitive paths listed. Your code, tools, and terminal work exactly as before.
 
 **Q: What if I need to access a blocked path?**
-A: Use `mass check <path>` to diagnose, then `mass launch --allow <path>` for a temporary exception. For permanent changes, edit the sandbox profile.
+A: Use `kaioshin check <path>` to diagnose, then `kaioshin launch --allow <path>` for a temporary exception.
 
 **Q: Is sandbox-exec deprecated?**
-A: Apple has marked it as deprecated since macOS 10.15, but it remains functional (tested on macOS 15+). There is no replacement API for user-space process sandboxing. If Apple removes it, MASS will adapt.
-
-**Q: Does this work with Docker / VS Code / other dev tools?**
-A: Yes. Dev tools are not blocked. Only sensitive data paths (passwords, keys, wallets) are denied.
+A: Apple marked it as deprecated since macOS 10.15, but it remains functional (tested on macOS 15+). There is no replacement API for user-space process sandboxing.
 
 **Q: Can a smart AI agent bypass this?**
-A: No. `sandbox-exec` is enforced at the kernel level. The sandboxed process has no way to escape — it would need a kernel exploit, which is far beyond any AI agent's capability.
+A: No. `sandbox-exec` is enforced at the kernel level. The sandboxed process cannot escape — it would need a kernel exploit, which is far beyond any AI agent's capability.
 
 ## Threat Model
 
-MASS protects against three attack vectors:
+Kaioshin protects against three attack vectors:
 
-1. **AI hallucination**: Agent accidentally reads/writes sensitive files during task execution
-2. **Prompt injection**: Malicious content in code/docs tricks the agent into exfiltrating data
-3. **Context leakage**: Sensitive data read into agent context gets transmitted to cloud APIs
-
-MASS does **not** protect against:
-- Network-level attacks (use a firewall)
-- Kernel exploits (use macOS updates)
-- Physical access (use FileVault)
+1. **AI hallucination**: Agent accidentally reads/writes sensitive files
+2. **Prompt injection**: Malicious content tricks the agent into exfiltrating data
+3. **Context leakage**: Sensitive data gets transmitted to cloud APIs
 
 ## Contributing
 
@@ -187,4 +182,6 @@ MIT — use it however you want.
 
 ---
 
-*Created by [小code](https://github.com/anthropics) & [Rob](https://robbery.blog) — born from the idea that AI agents deserve a home, but your passwords deserve a lock.*
+*Created by [小code](https://robbery.blog/search/label/AI) & [Rob](https://robbery.blog) — born in the 1984 Mac Homeland, inspired by Dragon Ball, built on the spirit of open source freedom.*
+
+*The Supreme Kai doesn't fight. He sets the rules that protect the universe.*

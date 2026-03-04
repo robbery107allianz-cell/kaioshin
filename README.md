@@ -33,7 +33,7 @@ kaioshin launch <any>     # Any AI agent, sandboxed
 
 ```bash
 # Clone
-git clone https://github.com/rob-hn/kaioshin.git ~/.kaioshin
+git clone https://github.com/robbery107allianz-cell/kaioshin.git ~/.kaioshin
 cd ~/.kaioshin
 
 # Install (auto-detects your apps, generates sandbox profile)

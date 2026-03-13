@@ -8,6 +8,7 @@ Kaioshin fixes this with one command. It uses macOS `sandbox-exec` for **kernel-
 
 ```bash
 kaioshin launch claude    # Claude Code, sandboxed
+kaioshin launch gemini    # Gemini CLI, sandboxed
 kaioshin launch cursor    # Cursor, sandboxed
 kaioshin launch <any>     # Any AI agent, sandboxed
 ```
@@ -74,6 +75,42 @@ kaioshin launch --allow ~/.ssh claude
 
 The `--allow` flag removes specific deny rules for that session only. All other protections remain active.
 
+## Verified Agents
+
+Kaioshin uses process-level kernel sandboxing — it works with **any CLI agent**, present or future, without agent-specific configuration.
+
+| Agent | Command | Status | Notes |
+|-------|---------|--------|-------|
+| **Claude Code** | `kaioshin launch claude` | Verified | Daily driver since 2026-03 |
+| **Gemini CLI** | `kaioshin launch gemini` | Verified | Google Gemini 3, tested 2026-03-13 |
+| **Cursor** | `kaioshin launch cursor` | Supported | Electron app, launch from terminal |
+| **Copilot CLI** | `kaioshin launch gh copilot` | Supported | Untested, should work |
+| **Any future agent** | `kaioshin launch <cmd>` | Supported | Kernel sandbox is agent-agnostic |
+
+### Multi-agent test results (2026-03-13)
+
+Gemini CLI was launched inside Kaioshin and instructed to read Chrome browser data:
+
+```
+Gemini → list_directory ~/Library/Application Support/Google/Chrome/
+  → Error: EPERM: operation not permitted
+
+Gemini's response: "内核层面的安全限制"
+```
+
+The agent attempted access, the kernel denied it. The agent itself was unaware it was sandboxed — Gemini's own status bar still displayed `no sandbox`. This confirms **kernel-level enforcement is transparent to the sandboxed process**.
+
+### Security note: AI-layer refusal vs kernel-layer blocking
+
+AI agents have two layers of defense:
+
+| Layer | Mechanism | Bypassable? |
+|-------|-----------|-------------|
+| **AI model safety** | Agent refuses to read sensitive files based on its training | Yes — prompt injection, jailbreaks, or rephrased requests can bypass |
+| **Kaioshin kernel sandbox** | macOS kernel denies file I/O at process level | No — requires a kernel exploit, far beyond any AI agent's capability |
+
+When asked directly to "read Chrome passwords", Gemini's AI layer refused on ethical grounds. But when asked indirectly to "check Chrome disk usage", the AI layer allowed it — and **only Kaioshin's kernel sandbox stopped the actual access**. This demonstrates why both layers matter, and why the kernel layer is the one you can trust.
+
 ## How It Works
 
 ```
@@ -87,7 +124,7 @@ The `--allow` flag removes specific deny rules for that session only. All other 
 │  │  (deny file-read* Chrome/...)   │     │ ← kernel-level
 │  │  (deny file-read* Keychains/...)│     │   enforcement
 │  │  (deny device-camera)           │     │
-│  │  ...44 deny rules...            │     │
+│  │  ...49 deny rules...            │     │
 │  │                                 │     │
 │  │  → claude (runs normally)       │     │
 │  └─────────────────────────────────┘     │
@@ -137,6 +174,7 @@ Then re-run `kaioshin install` to regenerate.
 # ~/.zshrc or ~/.bashrc
 alias ks='~/.kaioshin/kaioshin'
 alias claude-safe='~/.kaioshin/kaioshin launch claude'
+alias gemini-safe='~/.kaioshin/kaioshin launch gemini'
 alias cursor-safe='~/.kaioshin/kaioshin launch cursor'
 ```
 
@@ -161,6 +199,10 @@ A: Apple marked it as deprecated since macOS 10.15, but it remains functional (t
 A: No. `sandbox-exec` is enforced at the kernel level. The sandboxed process cannot escape — it would need a kernel exploit, which is far beyond any AI agent's capability.
 
 ## Known Limitations
+
+**Keychain "not found" dialog may appear for sandboxed agents.**
+
+Some agents (e.g., Gemini CLI) attempt to store OAuth credentials in the macOS Keychain. Since Kaioshin blocks Keychain access, macOS displays a "Keychain Not Found" dialog. **Click Cancel** — this is expected behavior and does not affect functionality. The agent falls back to file-based credential caching. Do NOT click "Reset To Defaults" as it may affect other applications' password storage.
 
 **macOS `defaults read` bypasses file-level deny rules.**
 

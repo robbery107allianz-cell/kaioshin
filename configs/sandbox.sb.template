@@ -102,6 +102,7 @@
 (allow file-read* (literal "__HOME__/.ssh/known_hosts"))
 (allow file-read* (literal "__HOME__/.ssh/known_hosts.old"))
 (allow file-read* (literal "__HOME__/.ssh/id_ed25519"))
+(allow file-read* (literal "__HOME__/.ssh/config"))
 (deny file-read* (subpath "__HOME__/.gnupg"))
 
 ;; ============================================================

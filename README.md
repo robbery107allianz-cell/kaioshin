@@ -81,7 +81,7 @@ Kaioshin uses process-level kernel sandboxing — it works with **any CLI agent*
 
 | Agent | Command | Status | Notes |
 |-------|---------|--------|-------|
-| **Claude Code** | `kaioshin launch claude` | Verified | Daily driver since 2026-03 |
+| **Claude Code** | `kaioshin launch claude` | Verified | Daily driver since 2026-03. v2.1.77+ needs `--allow /usr/bin/security` (see [Known Limitations](#known-limitations)) |
 | **Gemini CLI** | `kaioshin launch gemini` | Verified | Google Gemini 3, tested 2026-03-13 |
 | **Cursor** | `kaioshin launch cursor` | Supported | Electron app, launch from terminal |
 | **Copilot CLI** | `kaioshin launch gh copilot` | Supported | Untested, should work |
@@ -173,7 +173,7 @@ Then re-run `kaioshin install` to regenerate.
 ```bash
 # ~/.zshrc or ~/.bashrc
 alias ks='~/.kaioshin/kaioshin'
-alias claude-safe='~/.kaioshin/kaioshin launch claude'
+alias claude-safe='~/.kaioshin/kaioshin launch --allow /usr/bin/security claude'
 alias gemini-safe='~/.kaioshin/kaioshin launch gemini'
 alias cursor-safe='~/.kaioshin/kaioshin launch cursor'
 ```
@@ -199,6 +199,28 @@ A: Apple marked it as deprecated since macOS 10.15, but it remains functional (t
 A: No. `sandbox-exec` is enforced at the kernel level. The sandboxed process cannot escape — it would need a kernel exploit, which is far beyond any AI agent's capability.
 
 ## Known Limitations
+
+**Claude Code v2.1.77+ crashes on startup with `EPERM: posix_spawn 'security'`.**
+
+Starting from Claude Code v2.1.77, the CLI calls `/usr/bin/security` during startup (likely for Keychain-based credential or certificate validation). Since Kaioshin blocks the `security` command by default (it can export Keychain passwords in plaintext), this causes a fatal crash:
+
+```
+EPERM: operation not permitted, posix_spawn 'security'
+```
+
+**Fix:** Launch with a temporary exception for the `security` binary:
+
+```bash
+kaioshin launch --allow /usr/bin/security claude
+```
+
+Or update your shell alias:
+
+```bash
+alias claude-safe='kaioshin launch --allow /usr/bin/security claude'
+```
+
+This allows `security` to execute, but Kaioshin's file-level Keychain deny rules (`/Users/you/Library/Keychains`, `/Library/Keychains`) remain active — so `security` runs but cannot read any Keychain data. Defense in depth: the command is unblocked, but the data it would access is still blocked.
 
 **Keychain "not found" dialog may appear for sandboxed agents.**
 

@@ -97,12 +97,14 @@
 ;; ============================================================
 ;; P1 — Key pairs: SSH / GPG
 ;; ============================================================
-;; .ssh: deny entire directory, then whitelist Git-specific files
-(deny file-read* (subpath "__HOME__/.ssh"))
-(allow file-read* (literal "__HOME__/.ssh/known_hosts"))
-(allow file-read* (literal "__HOME__/.ssh/known_hosts.old"))
-(allow file-read* (literal "__HOME__/.ssh/id_ed25519"))
-(allow file-read* (literal "__HOME__/.ssh/config"))
+;; .ssh: deny write to entire dir, deny read on sensitive files only
+;; Strategy: cannot use deny-subpath + allow-literal (deny always wins in sandbox-exec)
+;; Instead: explicitly deny specific sensitive files, allow the rest
+(deny file-write* (subpath "__HOME__/.ssh"))
+(deny file-read* (literal "__HOME__/.ssh/id_rsa"))
+(deny file-read* (literal "__HOME__/.ssh/id_ecdsa"))
+(deny file-read* (literal "__HOME__/.ssh/id_dsa"))
+(deny file-read* (literal "__HOME__/.ssh/authorized_keys"))
 (deny file-read* (subpath "__HOME__/.gnupg"))
 
 ;; ============================================================

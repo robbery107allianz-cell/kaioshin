@@ -132,7 +132,7 @@ When asked directly to "read Chrome passwords", Gemini's AI layer refused on eth
 │  Desktop/  ✅ allowed                    │
 │  project/  ✅ allowed                    │
 │  Chrome/   ❌ Operation not permitted    │
-│  .ssh/     ❌ Operation not permitted    │
+│  .ssh/     ⚠️  selective (config ✅, id_rsa ❌) │
 └─────────────────────────────────────────┘
 ```
 
@@ -199,6 +199,34 @@ A: Apple marked it as deprecated since macOS 10.15, but it remains functional (t
 A: No. `sandbox-exec` is enforced at the kernel level. The sandboxed process cannot escape — it would need a kernel exploit, which is far beyond any AI agent's capability.
 
 ## Known Limitations
+
+**`deny subpath` cannot be overridden by `allow literal` — sandbox-exec rule priority is absolute.**
+
+In macOS `sandbox-exec`, a `(deny file-read* (subpath "/path"))` rule **always wins** over a subsequent `(allow file-read* (literal "/path/specific-file"))`, regardless of declaration order. This is a kernel-level design decision — deny-subpath is absolute.
+
+**Impact:** You cannot deny an entire directory and then whitelist specific files inside it. For example, this does NOT work:
+
+```scheme
+;; BROKEN — allow is silently ignored
+(deny file-read* (subpath "/Users/you/.ssh"))
+(allow file-read* (literal "/Users/you/.ssh/config"))     ;; ← ignored!
+(allow file-read* (literal "/Users/you/.ssh/known_hosts")) ;; ← ignored!
+```
+
+**Fix:** Instead of denying the entire directory, deny only the specific sensitive files you want to block:
+
+```scheme
+;; CORRECT — deny specific files, allow everything else
+(deny file-write* (subpath "/Users/you/.ssh"))           ;; no writes to .ssh
+(deny file-read* (literal "/Users/you/.ssh/id_rsa"))     ;; block old RSA keys
+(deny file-read* (literal "/Users/you/.ssh/id_ecdsa"))   ;; block ECDSA keys
+(deny file-read* (literal "/Users/you/.ssh/id_dsa"))     ;; block DSA keys
+;; config, known_hosts, id_ed25519 → allowed (needed for SSH to work)
+```
+
+This was discovered on 2026-03-18 when Claude Code v2.1.77+ SSH connections failed inside the sandbox. The `ssh` command needs to read `~/.ssh/config`, `known_hosts`, and private key files — all of which were silently blocked by the `deny subpath` rule despite explicit `allow` entries.
+
+---
 
 **Claude Code v2.1.77+ crashes on startup with `EPERM: posix_spawn 'security'`.**
 

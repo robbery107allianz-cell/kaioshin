@@ -231,7 +231,11 @@ cmd_launch() {
   # Generate temporary profile with exceptions (remove matching deny rules)
   if [ ${#allow_paths[@]} -gt 0 ]; then
     local tmp_profile
-    tmp_profile=$(mktemp /tmp/mass-sandbox-XXXXXX.sb)
+    tmp_profile=$(mktemp /tmp/kaioshin-sandbox-XXXXXX.sb)
+    if [ -z "$tmp_profile" ] || [ ! -f "$tmp_profile" ]; then
+      echo -e "${RED}[Kaioshin] Failed to create temporary sandbox profile${NC}"
+      exit 1
+    fi
 
     echo ";; MASS — Temporary profile with exceptions" > "$tmp_profile"
     echo "(version 1)" >> "$tmp_profile"

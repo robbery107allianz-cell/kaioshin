@@ -106,6 +106,33 @@ def _check_ssh_key_encryption(key_path: Path) -> bool:
         return False
 
 
+def _check_aws_credentials(path: Path, size: int, perm_info: str) -> tuple[str, str, str]:
+    """Check if AWS credentials file contains plaintext access keys."""
+    try:
+        content = path.read_text(encoding="utf-8", errors="ignore")
+        has_key = "aws_access_key_id" in content.lower()
+        has_secret = "aws_secret_access_key" in content.lower()
+        if has_key and has_secret:
+            return (
+                "exposed",
+                f"Plaintext AWS access key + secret ({size} bytes). {perm_info}",
+                "Migrate to AWS SSO / IAM Identity Center, or use aws-vault",
+            )
+        if has_key:
+            return (
+                "exposed",
+                f"Contains access key ID but no secret ({size} bytes). {perm_info}",
+                "Review if this file is still needed",
+            )
+        return (
+            "present",
+            f"AWS config file, no plaintext keys detected ({size} bytes). {perm_info}",
+            "",
+        )
+    except OSError:
+        return ("present", f"File exists ({size} bytes). {perm_info}", "")
+
+
 def _check_file_permissions(path: Path) -> str:
     """Check if file has overly permissive permissions."""
     try:
@@ -220,6 +247,8 @@ def scan_all() -> list[SecretFinding]:
                 status = "encrypted" if encrypted else "exposed"
                 detail = f"{'Encrypted' if encrypted else 'UNENCRYPTED'} ({size} bytes). {perm_info}"
                 rec = "" if encrypted else "Run: ssh-keygen -p -f " + str(path)
+            elif category == "AWS Credentials" and path.name == "credentials":
+                status, detail, rec = _check_aws_credentials(path, size, perm_info)
             elif path.suffix in (".json", ".yaml", ".yml", ".toml"):
                 status = "exposed"
                 detail = f"Plaintext config ({size} bytes). {perm_info}"

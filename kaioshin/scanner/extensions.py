@@ -24,6 +24,21 @@ BROWSER_EXTENSION_PATHS = {
 FIREFOX_PROFILE_PATH = "~/Library/Application Support/Firefox/Profiles"
 
 # Permissions that indicate high risk
+# Trusted extensions — reduce risk score (known-good, verified publisher)
+TRUSTED_EXTENSIONS = {
+    # Anthropic official
+    "claude": "Anthropic (official)",
+    # Password managers
+    "aeblfdkhhhdcdjpifhhbdiojplfjncoa": "1Password",
+    "nngceckbapebfimnlniiiahkandclblb": "Bitwarden",
+    "hdokiejnpimakedhajhdlcegeplioahd": "LastPass",
+    # Ad blockers (open source)
+    "cjpalhdlnbpafiamejdnhcphjbkeiagm": "uBlock Origin",
+    # Dev tools
+    "fmkadmapgofadopljbjfkapdkoienihi": "React Developer Tools",
+    "lmhkpmbekcpmknklioeibfkpmmfibljd": "Redux DevTools",
+}
+
 DANGEROUS_PERMISSIONS = {
     "<all_urls>": "Can access ALL websites — full browsing data exposure",
     "http://*/*": "Can access all HTTP sites",
@@ -164,9 +179,32 @@ def _is_host_pattern(perm: str) -> bool:
 
 
 def _assess_risk(info: ExtensionInfo, all_perms: list[str]) -> None:
-    """Assess risk level based on permissions and known threats."""
+    """Assess risk level based on permissions, known threats, and trusted list."""
     score = 0
     reasons = []
+
+    # Check known malicious extensions first
+    if info.ext_id in _KNOWN_MALICIOUS_IDS:
+        mal_name = _KNOWN_MALICIOUS_IDS[info.ext_id]
+        info.risk_level = "critical"
+        info.risk_reasons = [f"KNOWN MALICIOUS: {mal_name} — matched in threat database"]
+        return
+
+    # Check trusted extensions — cap risk at "low"
+    is_trusted = info.ext_id in TRUSTED_EXTENSIONS
+    if not is_trusted:
+        name_lower = info.name.lower()
+        for trusted_id, trusted_label in TRUSTED_EXTENSIONS.items():
+            # Match by ID or by name substring (e.g. "Claude" matches "Anthropic (official)" label)
+            # Also check if the trusted label keywords appear in extension name
+            label_words = [w.lower() for w in trusted_label.replace("(", "").replace(")", "").split() if len(w) > 2]
+            if any(w in name_lower for w in label_words):
+                is_trusted = True
+                break
+        # Also match known publisher names directly in extension name
+        trusted_names = ["claude", "1password", "bitwarden", "lastpass", "ublock origin", "react developer tools"]
+        if any(tn in name_lower for tn in trusted_names):
+            is_trusted = True
 
     for perm in all_perms:
         if perm in DANGEROUS_PERMISSIONS:
@@ -184,7 +222,11 @@ def _assess_risk(info: ExtensionInfo, all_perms: list[str]) -> None:
         reasons.append(f"Broad host access: {len(broad_hosts)} wildcard patterns")
         score += 2
 
-    if score == 0:
+    if is_trusted:
+        trust_source = TRUSTED_EXTENSIONS.get(info.ext_id, "name match")
+        reasons.insert(0, f"Trusted: {trust_source} (risk capped)")
+        info.risk_level = "low" if score > 0 else "safe"
+    elif score == 0:
         info.risk_level = "safe"
     elif score <= 2:
         info.risk_level = "low"
@@ -196,6 +238,12 @@ def _assess_risk(info: ExtensionInfo, all_perms: list[str]) -> None:
         info.risk_level = "critical"
 
     info.risk_reasons = reasons
+
+
+# Known malicious extension IDs (from knowledge base)
+_KNOWN_MALICIOUS_IDS = {
+    "ilehaonighjijnmpnagapkhpcdbhclfg": "Grass (bandwidth-selling)",
+}
 
 
 def scan_firefox_extensions() -> list[ExtensionInfo]:

@@ -57,8 +57,8 @@ SENSITIVE_PATHS = {
             "~/Library/Keychains/login.keychain-db",
             "~/Library/Keychains/keychain-2.db",
         ],
-        "severity": "P0",
-        "description": "macOS Keychain — all stored passwords",
+        "severity": "P2",
+        "description": "macOS Keychain — encrypted, requires Touch ID/password to read plaintext",
     },
     "Apple Identity": {
         "paths": [

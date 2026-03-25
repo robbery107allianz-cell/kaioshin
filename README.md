@@ -1,292 +1,142 @@
-# Kaioshin 界王神 — Mac AI Security Sandbox
+# Kaioshin 界王神 — Mac Security Auditor
 
-***The Supreme Kai of your Mac***
+*The Supreme Kai doesn't fight. He watches, detects, and reports.*
 
-AI coding agents (Claude Code, Cursor, Copilot, Windsurf, Devin) run with your full user permissions. They can read your Chrome passwords, Keychain, SSH keys, crypto wallets, and chat history — by accident or by prompt injection.
+---
 
-Kaioshin fixes this with one command. It uses macOS `sandbox-exec` for **kernel-level process isolation** with near-zero performance overhead.
+## What is this?
 
-```bash
-kaioshin launch claude    # Claude Code, sandboxed
-kaioshin launch gemini    # Gemini CLI, sandboxed
-kaioshin launch cursor    # Cursor, sandboxed
-kaioshin launch <any>     # Any AI agent, sandboxed
-```
+Kaioshin scans your Mac for real security threats — malicious browser extensions, exposed credentials, crypto wallet vulnerabilities, suspicious network connections, and AI tool security posture.
 
-> *In Dragon Ball, the Kaiōshin (界王神) is the Supreme Kai — the divine guardian who watches over the universe. He doesn't interfere with daily life, but sets unbreakable rules that protect against catastrophic threats. That's exactly what this tool does for your Mac.*
+**Not a sandbox. Not a firewall. A security auditor that tells you what's actually exposed.**
 
-## What Gets Blocked
+### Why?
 
-| Category | Examples | Priority |
-|----------|----------|----------|
-| Hardware | Camera, microphone | P0 |
-| Browsers | Chrome, Firefox, Safari, Edge, Brave, Arc, Opera, Vivaldi, Chromium, Tor | P0 |
-| Crypto | OKX, Binance, Gate, Trezor, Coinbase, Exodus, Ledger, TradingView | P0 |
-| Keychain | All keychain databases + `security` command | P0 |
-| SSH/GPG | Private keys, agent sockets | P1 |
-| Messaging | Telegram, Signal, Discord, WhatsApp, WeChat, Slack, iMessage | P1 |
-| Dev credentials | AWS, Docker, Kubernetes, npm, PyPI | P2 |
-| System | Cookies, Accounts databases | P2 |
+A Chrome extension called Grass uploaded 5.7GB of data in 3 hours through a user's browser, selling their bandwidth as a residential proxy. The user had no idea.
 
-**Everything else is allowed.** Your project files, Desktop, terminal tools, git, npm, python — all work normally.
+That's not a hypothetical. It happened. And it's the kind of threat that antivirus software doesn't catch, because the extension had user-granted permissions.
+
+Kaioshin catches it.
+
+---
 
 ## Quick Start
 
 ```bash
 # Clone
-git clone https://github.com/robbery107allianz-cell/kaioshin.git ~/.kaioshin
-cd ~/.kaioshin
+git clone https://github.com/robbery107allianz-cell/kaioshin.git
+cd kaioshin
 
-# Install (auto-detects your apps, generates sandbox profile)
-./kaioshin install
-
-# Launch your AI agent in the sandbox
-./kaioshin launch claude
+# Run (zero dependencies — uses Python 3.11+ standard library)
+python3 kai scan
 ```
 
-## CLI Reference
+That's it. No install, no pip, no venv needed.
 
-| Command | Description |
-|---------|-------------|
-| `kaioshin install` | First-time setup: detect apps, generate sandbox, verify |
-| `kaioshin launch <cmd>` | Launch any command inside the sandbox |
-| `kaioshin launch --allow <path> <cmd>` | Launch with a temporary path exception |
-| `kaioshin check <path>` | Diagnose if a path is blocked and show which rule |
-| `kaioshin rules` | List all active deny rules |
-| `kaioshin test` | Run security verification tests |
-| `kaioshin scan` | Scan for newly installed apps not yet covered |
-| `kaioshin status` | Show protection status dashboard |
+> PyYAML is optional — only needed if you want to extend the knowledge base.
 
-## If Something Gets Blocked
+---
 
-AI agents sometimes need access to paths that Kaioshin blocks. Here's the workflow:
+## What It Scans
+
+### 🧩 Browser Extensions
+- Scans Chrome, Brave, Edge, Arc, Firefox, Vivaldi, Opera, Chromium
+- Analyzes every extension's permissions against a danger matrix
+- Flags `<all_urls>`, `webRequestBlocking`, `nativeMessaging`, `debugger`, etc.
+- Risk rating: Safe → Low → Medium → High → Critical
+
+### 🔑 Sensitive Files
+- SSH keys (encrypted vs unencrypted)
+- AWS/GCP/Docker/npm/Kubernetes credentials
+- macOS Keychain exposure
+- `.env` files with API keys
+- File permission audit (group/other readable?)
+
+### 💰 Crypto Wallet Exposure
+- Detects 13+ wallet extensions (MetaMask, Phantom, Coinbase, etc.)
+- Scans IndexedDB for DApp authorization traces
+- Checks for desktop wallets (Exodus, Electrum, Ledger, Trezor)
+
+### 🌐 Network Connections
+- Lists all active outbound connections via `lsof`
+- Flags connections to known bandwidth-selling services
+- Detects suspicious ports (Metasploit, RAT, IRC C2, etc.)
+
+### 🤖 AI Agent Security Ratings
+- Rates installed AI coding tools on a ★★★★★ scale
+- Evaluates: file access control, sandboxing, permission model
+- Currently rates: Claude Code, Cursor, Copilot, Gemini CLI, Windsurf, Devin
+
+---
+
+## Commands
 
 ```bash
-# 1. Diagnose what's blocking you
-kaioshin check ~/.ssh/id_rsa
-# → BLOCKED by: (deny file-read* (subpath "/Users/you/.ssh"))
-# → To unblock: kaioshin launch --allow "/Users/you/.ssh" claude
-
-# 2. Launch with temporary exception (one session only)
-kaioshin launch --allow ~/.ssh claude
-
-# 3. Or permanently: edit configs/sandbox.sb and remove the deny rule
+kai scan                 # Full audit — all modules, generates report
+kai scan extensions      # Browser extensions only
+kai scan secrets         # Sensitive files only
+kai scan wallets         # Crypto wallet exposure only
+kai scan network         # Network connections only
+kai scan ai              # AI tool security ratings only
+kai report               # Show latest report path
+kai version              # Show version
 ```
 
-The `--allow` flag removes specific deny rules for that session only. All other protections remain active.
+---
 
-## Verified Agents
+## Output
 
-Kaioshin uses process-level kernel sandboxing — it works with **any CLI agent**, present or future, without agent-specific configuration.
+### Terminal
+Colored output with risk icons, sorted by severity. Designed to be readable at a glance.
 
-| Agent | Command | Status | Notes |
-|-------|---------|--------|-------|
-| **Claude Code** | `kaioshin launch claude` | Verified | Daily driver since 2026-03. v2.1.77+ needs `--allow /usr/bin/security` (see [Known Limitations](#known-limitations)) |
-| **Gemini CLI** | `kaioshin launch gemini` | Verified | Google Gemini 3, tested 2026-03-13 |
-| **Cursor** | `kaioshin launch cursor` | Supported | Electron app, launch from terminal |
-| **Copilot CLI** | `kaioshin launch gh copilot` | Supported | Untested, should work |
-| **Any future agent** | `kaioshin launch <cmd>` | Supported | Kernel sandbox is agent-agnostic |
+### Markdown Report
+Full scan automatically generates `reports/YYYY-MM-DD-audit.md` — a detailed audit report you can share, archive, or track over time.
 
-### Multi-agent test results (2026-03-13)
+---
 
-Gemini CLI was launched inside Kaioshin and instructed to read Chrome browser data:
-
-```
-Gemini → list_directory ~/Library/Application Support/Google/Chrome/
-  → Error: EPERM: operation not permitted
-
-Gemini's response: "内核层面的安全限制"
-```
-
-The agent attempted access, the kernel denied it. The agent itself was unaware it was sandboxed — Gemini's own status bar still displayed `no sandbox`. This confirms **kernel-level enforcement is transparent to the sandboxed process**.
-
-### Security note: AI-layer refusal vs kernel-layer blocking
-
-AI agents have two layers of defense:
-
-| Layer | Mechanism | Bypassable? |
-|-------|-----------|-------------|
-| **AI model safety** | Agent refuses to read sensitive files based on its training | Yes — prompt injection, jailbreaks, or rephrased requests can bypass |
-| **Kaioshin kernel sandbox** | macOS kernel denies file I/O at process level | No — requires a kernel exploit, far beyond any AI agent's capability |
-
-When asked directly to "read Chrome passwords", Gemini's AI layer refused on ethical grounds. But when asked indirectly to "check Chrome disk usage", the AI layer allowed it — and **only Kaioshin's kernel sandbox stopped the actual access**. This demonstrates why both layers matter, and why the kernel layer is the one you can trust.
-
-## How It Works
-
-```
-┌─────────────────────────────────────────┐
-│  kaioshin launch claude                  │
-│                                          │
-│  ┌─────────────────────────────────┐     │
-│  │  sandbox-exec -f sandbox.sb     │     │
-│  │                                 │     │
-│  │  (allow default)                │     │
-│  │  (deny file-read* Chrome/...)   │     │ ← kernel-level
-│  │  (deny file-read* Keychains/...)│     │   enforcement
-│  │  (deny device-camera)           │     │
-│  │  ...49 deny rules...            │     │
-│  │                                 │     │
-│  │  → claude (runs normally)       │     │
-│  └─────────────────────────────────┘     │
-│                                          │
-│  Desktop/  ✅ allowed                    │
-│  project/  ✅ allowed                    │
-│  Chrome/   ❌ Operation not permitted    │
-│  .ssh/     ⚠️  selective (config ✅, id_rsa ❌) │
-└─────────────────────────────────────────┘
-```
-
-- **Default allow**: Everything is permitted unless explicitly denied
-- **Precise deny**: Only sensitive paths are blocked (not whole directories)
-- **Kernel-level**: `sandbox-exec` runs in the macOS kernel — no userspace overhead
-- **Process isolation**: The AI agent process itself cannot bypass the sandbox
-
-## Project Structure
+## Architecture
 
 ```
 kaioshin/
-├── kaioshin                    # Main CLI (bash, single file)
-├── configs/
-│   ├── sandbox.sb.template     # Template with __HOME__ placeholders
-│   └── sandbox.sb              # Generated profile (user-specific, gitignored)
-├── docs/
-│   └── methodology.md          # Security classification methodology
-├── LICENSE                     # MIT
-└── README.md                   # This file
+├── kai                          # CLI entry point
+├── kaioshin/                    # Python package
+│   ├── cli.py                   # Command parser
+│   ├── scanner/                 # Scan modules
+│   │   ├── extensions.py        # Browser extension analysis
+│   │   ├── secrets.py           # Sensitive file detection
+│   │   ├── wallets.py           # Crypto wallet exposure
+│   │   ├── network.py           # Network connection audit
+│   │   └── ai_agents.py        # AI tool security ratings
+│   ├── reporter/                # Output formatters
+│   │   ├── terminal.py          # Colored terminal output
+│   │   └── markdown.py          # Markdown report generator
+│   └── knowledge/               # Threat intelligence
+│       ├── malicious_extensions.yaml
+│       └── risk_matrix.yaml
+├── reports/                     # Generated audit reports
+├── pyproject.toml
+└── LICENSE                      # MIT
 ```
-
-## Customizing
-
-### Add a new deny rule
-
-Edit `configs/sandbox.sb.template`:
-
-```scheme
-;; My custom app
-(deny file-read* (subpath "__HOME__/Library/Application Support/MyApp"))
-```
-
-Then re-run `kaioshin install` to regenerate.
-
-### Shell aliases
-
-```bash
-# ~/.zshrc or ~/.bashrc
-alias ks='~/.kaioshin/kaioshin'
-alias claude-safe='~/.kaioshin/kaioshin launch --allow /usr/bin/security claude'
-alias gemini-safe='~/.kaioshin/kaioshin launch gemini'
-alias cursor-safe='~/.kaioshin/kaioshin launch cursor'
-```
-
-## Requirements
-
-- macOS 10.5+ (sandbox-exec is available on all modern macOS versions)
-- Bash 3.2+ (ships with macOS)
-- No dependencies, no sudo, no compilation
-
-## FAQ
-
-**Q: Will this break my AI agent?**
-A: No. Kaioshin uses `(allow default)` — everything is allowed except the specific sensitive paths listed. Your code, tools, and terminal work exactly as before.
-
-**Q: What if I need to access a blocked path?**
-A: Use `kaioshin check <path>` to diagnose, then `kaioshin launch --allow <path>` for a temporary exception.
-
-**Q: Is sandbox-exec deprecated?**
-A: Apple marked it as deprecated since macOS 10.15, but it remains functional (tested on macOS 15+). There is no replacement API for user-space process sandboxing.
-
-**Q: Can a smart AI agent bypass this?**
-A: No. `sandbox-exec` is enforced at the kernel level. The sandboxed process cannot escape — it would need a kernel exploit, which is far beyond any AI agent's capability.
-
-## Known Limitations
-
-**`deny subpath` cannot be overridden by `allow literal` — sandbox-exec rule priority is absolute.**
-
-In macOS `sandbox-exec`, a `(deny file-read* (subpath "/path"))` rule **always wins** over a subsequent `(allow file-read* (literal "/path/specific-file"))`, regardless of declaration order. This is a kernel-level design decision — deny-subpath is absolute.
-
-**Impact:** You cannot deny an entire directory and then whitelist specific files inside it. For example, this does NOT work:
-
-```scheme
-;; BROKEN — allow is silently ignored
-(deny file-read* (subpath "/Users/you/.ssh"))
-(allow file-read* (literal "/Users/you/.ssh/config"))     ;; ← ignored!
-(allow file-read* (literal "/Users/you/.ssh/known_hosts")) ;; ← ignored!
-```
-
-**Fix:** Instead of denying the entire directory, deny only the specific sensitive files you want to block:
-
-```scheme
-;; CORRECT — deny specific files, allow everything else
-(deny file-write* (subpath "/Users/you/.ssh"))           ;; no writes to .ssh
-(deny file-read* (literal "/Users/you/.ssh/id_rsa"))     ;; block old RSA keys
-(deny file-read* (literal "/Users/you/.ssh/id_ecdsa"))   ;; block ECDSA keys
-(deny file-read* (literal "/Users/you/.ssh/id_dsa"))     ;; block DSA keys
-;; config, known_hosts, id_ed25519 → allowed (needed for SSH to work)
-```
-
-This was discovered on 2026-03-18 when Claude Code v2.1.77+ SSH connections failed inside the sandbox. The `ssh` command needs to read `~/.ssh/config`, `known_hosts`, and private key files — all of which were silently blocked by the `deny subpath` rule despite explicit `allow` entries.
 
 ---
 
-**Claude Code v2.1.77+ crashes on startup with `EPERM: posix_spawn 'security'`.**
+## Design Principles
 
-Starting from Claude Code v2.1.77, the CLI calls `/usr/bin/security` during startup (likely for Keychain-based credential or certificate validation). Since Kaioshin blocks the `security` command by default (it can export Keychain passwords in plaintext), this causes a fatal crash:
+1. **Read-only** — Kaioshin never modifies, deletes, or writes to any scanned location
+2. **No sensitive data in output** — reports show file paths and metadata, never contents
+3. **Zero required dependencies** — runs on Python 3.11+ standard library alone
+4. **No root required** — all scans use standard user permissions
+5. **Offline** — no network calls, no telemetry, no cloud
 
-```
-EPERM: operation not permitted, posix_spawn 'security'
-```
+---
 
-**Fix:** Launch with a temporary exception for the `security` binary:
+## History
 
-```bash
-kaioshin launch --allow /usr/bin/security claude
-```
+- **v1** (2026-03-03): Mac AI Security Sandbox — `sandbox-exec` based process isolation
+- **v2** (2026-03-25): Pivoted to security auditor after experiments proved real threats are malicious extensions, not AI agents
 
-Or update your shell alias:
-
-```bash
-alias claude-safe='kaioshin launch --allow /usr/bin/security claude'
-```
-
-This allows `security` to execute, but Kaioshin's file-level Keychain deny rules (`/Users/you/Library/Keychains`, `/Library/Keychains`) remain active — so `security` runs but cannot read any Keychain data. Defense in depth: the command is unblocked, but the data it would access is still blocked.
-
-**Keychain "not found" dialog may appear for sandboxed agents.**
-
-Some agents (e.g., Gemini CLI) attempt to store OAuth credentials in the macOS Keychain. Since Kaioshin blocks Keychain access, macOS displays a "Keychain Not Found" dialog. **Click Cancel** — this is expected behavior and does not affect functionality. The agent falls back to file-based credential caching. Do NOT click "Reset To Defaults" as it may affect other applications' password storage.
-
-**macOS `defaults read` bypasses file-level deny rules.**
-
-The `defaults` command reads preferences through `cfprefsd` (an XPC service), not through direct file I/O. This means commands like `defaults read MobileMeAccounts` can still return iCloud account identities (email addresses, display names) even though the underlying plist file is blocked.
-
-This is a macOS architecture constraint — `sandbox-exec` enforces file-level access control but cannot intercept XPC inter-process communication.
-
-**What's exposed:** Apple ID email addresses, display names.
-**What's NOT exposed:** Passwords, authentication tokens, Keychain data (all blocked).
-
-**Recommendation:** Enable **two-factor authentication** (2FA) on all your Apple accounts. With 2FA active, a leaked email address alone has near-zero security impact. You can enable it at [appleid.apple.com](https://appleid.apple.com) → Sign-In and Security → Two-Factor Authentication.
-
-## Threat Model
-
-Kaioshin protects against three attack vectors:
-
-1. **AI hallucination**: Agent accidentally reads/writes sensitive files
-2. **Prompt injection**: Malicious content tricks the agent into exfiltrating data
-3. **Context leakage**: Sensitive data gets transmitted to cloud APIs
-
-## Contributing
-
-PRs welcome. Key areas:
-- New browser/app profiles for the template
-- Linux support (using seccomp/AppArmor)
-- Windows support (using Windows Sandbox)
-- Integration with specific AI agent frameworks
+---
 
 ## License
 
-MIT — use it however you want.
-
----
-
-*Created by [小code](https://robbery.blog/search/label/AI) & [Rob](https://robbery.blog) — born in the 1984 Mac Homeland, inspired by Dragon Ball, built on the spirit of open source freedom.*
-
-*The Supreme Kai doesn't fight. He sets the rules that protect the universe.*
+MIT — Code & Rob · 1984

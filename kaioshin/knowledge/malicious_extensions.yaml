@@ -1,0 +1,39 @@
+# Known malicious or high-risk browser extensions
+# Updated: 2026-03-25
+# Source: community reports, security advisories, Rob's research
+
+malicious:
+  - id: "ilehaonighjijnmpnagapkhpcdbhclfg"
+    name: "Grass"
+    category: "bandwidth-selling"
+    severity: "critical"
+    detail: "Sells user bandwidth as residential proxy. Case study: 5.7GB uploaded in 3 hours."
+    reference: "https://www.getgrass.io"
+
+  - id: "unknown"
+    name: "Honeygain"
+    category: "bandwidth-selling"
+    severity: "critical"
+    detail: "Shares internet connection for passive income. Your IP used for others' traffic."
+
+  - id: "unknown"
+    name: "Pawns.app"
+    category: "bandwidth-selling"
+    severity: "critical"
+    detail: "Bandwidth sharing service. Routes unknown traffic through your connection."
+
+high_risk_categories:
+  bandwidth_selling:
+    description: "Extensions that sell your internet bandwidth as residential proxy"
+    risk: "Your IP is used for web scraping, ad fraud, or worse. Impossible to know what traffic flows through."
+    examples: ["Grass", "Honeygain", "Pawns.app", "IPRoyal Pawns", "Peer2Profit", "PacketStream"]
+
+  clipboard_hijacking:
+    description: "Extensions that monitor or modify clipboard contents"
+    risk: "Can replace crypto wallet addresses during copy-paste"
+    detection: "Check for clipboardRead + clipboardWrite permissions"
+
+  session_stealing:
+    description: "Extensions that exfiltrate cookies or session tokens"
+    risk: "Account takeover without password"
+    detection: "Check for cookies + <all_urls> permission combo"

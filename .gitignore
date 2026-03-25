@@ -1,13 +1,17 @@
-# Generated sandbox profile (user-specific, contains absolute paths)
+# v1 legacy
 configs/sandbox.sb
 
-# Scan results (machine-specific personal data)
-scans/
+# v2
+reports/
+__pycache__/
+kaioshin/__pycache__/
+kaioshin/scanner/__pycache__/
+kaioshin/reporter/__pycache__/
+kaioshin/knowledge/__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
 
-# macOS
+# System
 .DS_Store
-
-# Editor
-*.swp
-*.swo
-*~

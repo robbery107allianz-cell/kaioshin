@@ -1,0 +1,16 @@
+[project]
+name = "kaioshin"
+version = "2.0.0"
+description = "Mac Security Auditor — The Supreme Kai of your Mac"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [{name = "Code & Rob", email = "noreply@1984.dev"}]
+dependencies = ["pyyaml>=6.0"]
+
+[project.scripts]
+kai = "kaioshin.cli:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"

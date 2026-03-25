@@ -1,0 +1,50 @@
+# Kaioshin v2 Risk Classification Matrix
+# Based on methodology.md from v1, adapted for scanner architecture
+# Updated: 2026-03-25
+
+priority_levels:
+  P0:
+    name: "Catastrophic"
+    description: "Irreversible financial loss or identity compromise"
+    response: "Immediate action required"
+    examples:
+      - "Unencrypted SSH private keys"
+      - "Malicious browser extension with <all_urls>"
+      - "Crypto wallet data exposed"
+      - "Plaintext AWS root credentials"
+
+  P1:
+    name: "Severe"
+    description: "Significant data exposure or credential leak"
+    response: "Fix within 24 hours"
+    examples:
+      - "Encrypted SSH keys with weak permissions"
+      - "API tokens in .env files"
+      - "DApp authorization traces"
+      - "High-permission browser extensions"
+
+  P2:
+    name: "Medium"
+    description: "Limited exposure, defense-in-depth concern"
+    response: "Fix when convenient"
+    examples:
+      - "Browser history accessible"
+      - "Non-secret environment variables"
+      - "Unused credential files"
+
+risk_dimensions:
+  - name: "File Access"
+    description: "Can sensitive files be read by unauthorized processes?"
+    scanned_by: ["secrets", "wallets"]
+
+  - name: "Extension Permissions"
+    description: "Do browser extensions have excessive capabilities?"
+    scanned_by: ["extensions"]
+
+  - name: "Network Exposure"
+    description: "Are there suspicious outbound connections?"
+    scanned_by: ["network"]
+
+  - name: "Tool Security"
+    description: "Do AI coding tools have appropriate access controls?"
+    scanned_by: ["ai_agents"]

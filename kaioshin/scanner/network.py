@@ -33,9 +33,7 @@ SUSPICIOUS_PORTS = {
     6666: "Common backdoor",
     6667: "IRC (botnet C2)",
     8888: "Common proxy/tunnel",
-    9090: "Common proxy",
-    1080: "SOCKS proxy",
-    3128: "Squid proxy",
+    3128: "Squid proxy (non-standard use)",
     31337: "Back Orifice",
     1337: "Common hacker port",
 }
@@ -90,6 +88,11 @@ EXPECTED_NETWORK_PROCESSES = {
     "AMPDevicesAgent", "AMPLibraryAgent", "StoreSer",  # Apple services
     "accountsd", "passd", "kernelmanagerd", "notifyd",  # macOS system
     "symptomsd", "parsecd", "biomed", "healthd",  # macOS analytics
+    "clash", "ClashX", "mihomo", "Clash Verge", "clashx-meta",  # Proxy/VPN
+    "v2ray", "xray", "ss-local", "trojan", "hysteria", "sing-box",  # Proxy cores
+    "Surge", "Quantumult", "Shadowrocket", "Loon", "Stash",  # Proxy clients
+    "Tunnelblick", "OpenVPN", "WireGuard", "tailscaled",  # VPN
+    "nesessionmanager", "NEIKEv2Provider",  # macOS VPN framework
 }
 
 # Regex to detect raw IP addresses (not resolved to hostnames)

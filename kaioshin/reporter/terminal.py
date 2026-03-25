@@ -121,17 +121,36 @@ def print_wallets(findings: list[WalletFinding]):
 def print_network(connections: list[ConnectionInfo]):
     """Print network scan results."""
     suspicious = [c for c in connections if c.suspicious]
+    critical = [c for c in suspicious if c.severity == "critical"]
+    warnings = [c for c in suspicious if c.severity == "warning"]
+    infos = [c for c in suspicious if c.severity == "info"]
     established = [c for c in connections if "ESTABLISHED" in c.state.upper()]
 
-    color = RED if suspicious else GREEN
-    print(f"{BOLD}🌐 Network Connections{RESET}         {len(established)} active, {color}{len(suspicious)} suspicious{RESET}")
+    color = RED if critical else YELLOW if warnings else GREEN
+    print(f"{BOLD}🌐 Network Connections{RESET}         {len(established)} active, {color}{len(suspicious)} flagged{RESET}")
 
-    if suspicious:
-        for conn in suspicious:
-            print(f"  {RED}⚠️  {conn.process_name}{RESET} (PID {conn.pid})")
+    if critical:
+        for conn in critical:
+            print(f"  {RED}🔴 {conn.process_name}{RESET} (PID {conn.pid})")
             print(f"     {DIM}→ {conn.remote_addr}:{conn.remote_port}{RESET}")
             print(f"     {RED}{conn.reason}{RESET}")
-    else:
+
+    if warnings:
+        for conn in warnings:
+            print(f"  {YELLOW}⚠️  {conn.process_name}{RESET} (PID {conn.pid})")
+            if conn.remote_port:
+                print(f"     {DIM}→ {conn.remote_addr}:{conn.remote_port}{RESET}")
+            else:
+                print(f"     {DIM}→ {conn.remote_addr} ({conn.state}){RESET}")
+            print(f"     {YELLOW}{conn.reason}{RESET}")
+
+    if infos:
+        for conn in infos:
+            print(f"  {BLUE}ℹ️  {conn.process_name}{RESET} (PID {conn.pid})")
+            print(f"     {DIM}→ {conn.remote_addr}:{conn.remote_port}{RESET}")
+            print(f"     {DIM}{conn.reason}{RESET}")
+
+    if not suspicious:
         print(f"  {GREEN}✅ No suspicious connections detected{RESET}")
 
     print()

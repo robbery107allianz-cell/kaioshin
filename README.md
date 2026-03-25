@@ -72,15 +72,50 @@ That's it. No install, no pip, no venv needed.
 ## Commands
 
 ```bash
-kai scan                 # Full audit — all modules, generates report
-kai scan extensions      # Browser extensions only
-kai scan secrets         # Sensitive files only
-kai scan wallets         # Crypto wallet exposure only
-kai scan network         # Network connections only
-kai scan ai              # AI tool security ratings only
-kai report               # Show latest report path
-kai version              # Show version
+python3 kai scan                 # Full audit — all modules, generates report
+python3 kai scan extensions      # Browser extensions only
+python3 kai scan secrets         # Sensitive files only
+python3 kai scan wallets         # Crypto wallet exposure only
+python3 kai scan network         # Network connections only
+python3 kai scan ai              # AI tool security ratings only
+python3 kai report               # Show latest report path
+python3 kai version              # Show version
 ```
+
+### Optional: Set up alias
+
+Add this to your `~/.zshrc` (or `~/.bashrc`) so you can run `kai` from anywhere:
+
+```bash
+echo 'alias kai="python3 ~/path/to/kaioshin/kai"' >> ~/.zshrc
+source ~/.zshrc
+
+# Then simply:
+kai scan
+```
+
+---
+
+## Reading the Output
+
+### Severity levels
+
+```
+🔴 CRITICAL  — Act immediately (malicious extension, plaintext private key)
+⚠️  HIGH      — Fix within 24 hours (excessive permissions, exposed API keys)
+ℹ️  LOW/INFO  — Awareness only (raw IP connections, low-risk permissions)
+✅ SAFE       — No issues
+```
+
+### Reports
+
+Every full scan (`kai scan`) generates a Markdown report at:
+
+```
+reports/YYYY-MM-DD-audit.md
+```
+
+Reports include **step-by-step fix guides** for every issue found — written in plain language, no AI tools required. Open with any Markdown viewer (Obsidian, VS Code, GitHub, etc.).
 
 ---
 
